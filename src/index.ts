@@ -95,10 +95,38 @@ async function setState(db: D1Database, key: string, value: string): Promise<voi
 }
 
 async function notify(env: Env, challenge: Challenge): Promise<void> {
-  const message = `New Challenge Detected!\nTitle: ${challenge.title}\nDescription: ${challenge.description}\nDate Interval: ${challenge.dateInterval}\nQualifying Activities: ${challenge.qualifyingActivities}\n${challenge.url}`;
-  const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: env.TELEGRAM_CHAT_ID, text: message, disable_web_page_preview: false }) });
-  if (!response.ok) throw new Error(`Telegram returned HTTP ${response.status}`);
+  // Escape all MarkdownV2 reserved characters in dynamic content.
+  const esc = (s: string) => s.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, "\\$&");
+
+  const message = [
+    `⚡ *New Strava Challenge Detected\\!*`,
+    ``,
+    `🏆 *${esc(challenge.title)}*`,
+    ``,
+    `📝 ${esc(challenge.description)}`,
+    ``,
+    `📅 *Date Interval:* ${esc(challenge.dateInterval)}`,
+    `🏃 *Activities:* ${esc(challenge.qualifyingActivities)}`,
+    ``,
+    `[👉 View on Strava](${challenge.url})`,
+  ].join("\n");
+
+  const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      chat_id: env.TELEGRAM_CHAT_ID,
+      text: message,
+      parse_mode: "MarkdownV2",
+      link_preview_options: { is_disabled: false, prefer_large_media: true, show_above_text: false },
+    }),
+  });
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Telegram returned HTTP ${response.status}: ${errorBody}`);
+  }
 }
+
 
 async function scan(env: Env): Promise<{ found: number; missing: number; errors: number }> {
   let nextId = Number(await state(env.DB, "next_id", env.START_ID));
