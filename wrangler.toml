@@ -1,0 +1,27 @@
+name = "strava-challenges"
+main = "src/index.ts"
+compatibility_date = "2026-09-16"
+
+[triggers]
+crons = ["0 7,19 * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "strava-challenges"
+database_id = "ee4de2fe-9cc8-42c1-965f-696713ad999f"
+
+[vars]
+START_ID = "6434"
+
+# ...
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
+persist = true
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 1
+persist = true
+# ...
