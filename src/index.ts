@@ -102,9 +102,9 @@ async function notify(env: Env, challenge: Challenge): Promise<void> {
         `🏆 *${esc(challenge.title)}*`,        
         `_${esc(challenge.description)}_`,
         ``,
-        `📅 ${esc(challenge.dateInterval)}`,
+        `📅 *${esc(challenge.dateInterval)}`,
         ``,
-        `🏃 *Activities:* ${esc(challenge.qualifyingActivities)}`,
+        `🏃 *Activities:* _${esc(challenge.qualifyingActivities)}_`,
         ``,
         `[👉 View on Strava](${challenge.url})`,
     ].join("\n");
@@ -873,7 +873,7 @@ const dashboard = `<!doctype html>
       </div>
       <div class="stat-meta" style="margin-top: 10px;">
         <div id="next-scan-local-meta">Local Time</div>
-        <div style="font-size: 11px; opacity: 0.7;">Cadence: 07:00 & 19:00 UTC (2x daily)</div>
+        <div style="font-size: 11px; opacity: 0.7;">Cadence: 01:00, 07:00, 13:00 & 19:00 UTC (4x daily)</div>
       </div>
     </div>
 
@@ -1268,7 +1268,7 @@ export default {
                 consecutiveMissing: Number(consecutiveMissing),
                 lastScanResult,
                 nextScanAt,
-                cronSchedule: "0 7,19 * * *",
+                cronSchedule: "0 1,7,13,19 * * *",
                 challenges: challenges.results ?? []
             });
         }
