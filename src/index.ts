@@ -188,14 +188,20 @@ function getNextScheduledScan(now = new Date()): string {
     const y = now.getUTCFullYear();
     const m = now.getUTCMonth();
     const d = now.getUTCDate();
-    const slot1 = new Date(Date.UTC(y, m, d, 7, 0, 0, 0));
-    const slot2 = new Date(Date.UTC(y, m, d, 19, 0, 0, 0));
-    const slotTomorrow = new Date(Date.UTC(y, m, d + 1, 7, 0, 0, 0));
+    const slot1 = new Date(Date.UTC(y, m, d, 1, 0, 0, 0));
+    const slot2 = new Date(Date.UTC(y, m, d, 7, 0, 0, 0));
+    const slot3 = new Date(Date.UTC(y, m, d, 13, 0, 0, 0));
+    const slot4 = new Date(Date.UTC(y, m, d, 19, 0, 0, 0));
+    const slotTomorrow = new Date(Date.UTC(y, m, d + 1, 1, 0, 0, 0));
 
     if (now.getTime() < slot1.getTime()) {
         return slot1.toISOString();
     } else if (now.getTime() < slot2.getTime()) {
         return slot2.toISOString();
+    } else if (now.getTime() < slot3.getTime()) {
+        return slot3.toISOString();
+    } else if (now.getTime() < slot4.getTime()) {
+        return slot4.toISOString();
     } else {
         return slotTomorrow.toISOString();
     }
