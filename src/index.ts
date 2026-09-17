@@ -102,7 +102,7 @@ async function notify(env: Env, challenge: Challenge): Promise<void> {
         `🏆 *${esc(challenge.title)}*`,        
         `_${esc(challenge.description)}_`,
         ``,
-        `📅 *${esc(challenge.dateInterval)}`,
+        `📅 *${esc(challenge.dateInterval)}*`,
         ``,
         `🏃 *Activities:* _${esc(challenge.qualifyingActivities)}_`,
         ``,
