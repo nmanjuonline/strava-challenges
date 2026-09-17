@@ -1,206 +1,204 @@
 export interface Env {
-  DB: D1Database;
-  START_ID: string;
-  TELEGRAM_BOT_TOKEN: string;
-  TELEGRAM_CHAT_ID: string;
-  SCAN_ADMIN_TOKEN: string;
+    DB: D1Database;
+    START_ID: string;
+    TELEGRAM_BOT_TOKEN: string;
+    TELEGRAM_CHAT_ID: string;
+    SCAN_ADMIN_TOKEN: string;
 }
 
 type Challenge = {
-  id: number;
-  title: string;
-  description: string;
-  dateInterval: string;
-  qualifyingActivities: string;
-  url: string;
+    id: number;
+    title: string;
+    description: string;
+    dateInterval: string;
+    qualifyingActivities: string;
+    url: string;
 };
 
 const missingLimit = 4;
 const retryDelayMs = 12 * 60 * 60 * 1000;
 
 function htmlEntityDecode(value: string): string {
-  return value.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
+    return value.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
 }
 
 function meta(html: string, name: string): string {
-  const pattern = new RegExp(`<meta[^>]+(?:property|name)=["']${name}["'][^>]+content=["']([^"']*)["']`, "i");
-  const reverse = new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+(?:property|name)=["']${name}["']`, "i");
-  return htmlEntityDecode(pattern.exec(html)?.[1] ?? reverse.exec(html)?.[1] ?? "");
+    const pattern = new RegExp(`<meta[^>]+(?:property|name)=["']${name}["'][^>]+content=["']([^"']*)["']`, "i");
+    const reverse = new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+(?:property|name)=["']${name}["']`, "i");
+    return htmlEntityDecode(pattern.exec(html)?.[1] ?? reverse.exec(html)?.[1] ?? "");
 }
 
 function textContent(html: string): string {
-  return htmlEntityDecode(html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " "));
+    return htmlEntityDecode(html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " "));
 }
 
 function around(text: string, label: string): string {
-  const match = new RegExp(`${label}\\s*:?\\s*(.{0,180})`, "i").exec(text);
-  return match?.[1]?.split(/(?:Qualifying activities|Description|Date interval|Title)\s*:/i)[0].trim() ?? "";
+    const match = new RegExp(`${label}\\s*:?\\s*(.{0,180})`, "i").exec(text);
+    return match?.[1]?.split(/(?:Qualifying activities|Description|Date interval|Title)\s*:/i)[0].trim() ?? "";
 }
 
 function calendarDateInterval(html: string): string {
-  const decodedHtml = htmlEntityDecode(html);
-  const match = /["']summary["']\s*:\s*\{\s*["']calendar["']\s*:\s*\{\s*["']title["']\s*:\s*["']([^"']+)/i.exec(decodedHtml);
-  const title = match?.[1] ?? "";
-  return title.replace(/\s+[—-]{1,2}\s+\d+\s+days?\s+(?:left|until\s+start)\s*$/i, "").trim();
+    const decodedHtml = htmlEntityDecode(html);
+    const match = /["']summary["']\s*:\s*\{\s*["']calendar["']\s*:\s*\{\s*["']title["']\s*:\s*["']([^"']+)/i.exec(decodedHtml);
+    const title = match?.[1] ?? "";
+    return title.replace(/\s+[—-]{1,2}\s+\d+\s+days?\s+(?:left|until\s+start)\s*$/i, "").trim();
 }
 
 function qualifyingActivitiesFromPayload(html: string): string {
-  const decodedHtml = htmlEntityDecode(html);
-  const section = /["']key["']\s*:\s*["']qualifyingActivities["'][\s\S]{0,1000}?["']qualifyingActivities["']\s*:\s*\[([\s\S]*?)\]/i.exec(decodedHtml)?.[1] ?? "";
-  const activities: string[] = [];
-  for (const match of section.matchAll(/["']text["']\s*:\s*["']([^"']*)["']/gi)) {
-    if (match[1]) activities.push(match[1]);
-  }
-  return activities.join(", ");
+    const decodedHtml = htmlEntityDecode(html);
+    const section = /["']key["']\s*:\s*["']qualifyingActivities["'][\s\S]{0,1000}?["']qualifyingActivities["']\s*:\s*\[([\s\S]*?)\]/i.exec(decodedHtml)?.[1] ?? "";
+    const activities: string[] = [];
+    for (const match of section.matchAll(/["']text["']\s*:\s*["']([^"']*)["']/gi)) {
+        if (match[1]) activities.push(match[1]);
+    }
+    return activities.join(", ");
 }
 
 function parseChallenge(id: number, html: string): Challenge {
-  const text = textContent(html);
-  const title = meta(html, "og:title") || around(text, "Title") || `Strava challenge ${id}`;
-  const description = meta(html, "og:description") || around(text, "Description") || "Description unavailable";
-  const dateInterval = calendarDateInterval(html) || around(text, "Date interval") || around(text, "Dates") || "Dates unavailable";
-  const qualifyingActivities = qualifyingActivitiesFromPayload(html) || around(text, "Qualifying activities") || around(text, "Activities") || "Activities unavailable";
-  return { id, title, description, dateInterval, qualifyingActivities, url: `https://www.strava.com/challenges/${id}` };
+    const text = textContent(html);
+    const title = meta(html, "og:title") || around(text, "Title") || `Strava challenge ${id}`;
+    const description = meta(html, "og:description") || around(text, "Description") || "Description unavailable";
+    const dateInterval = calendarDateInterval(html) || around(text, "Date interval") || around(text, "Dates") || "Dates unavailable";
+    const qualifyingActivities = qualifyingActivitiesFromPayload(html) || around(text, "Qualifying activities") || around(text, "Activities") || "Activities unavailable";
+    return { id, title, description, dateInterval, qualifyingActivities, url: `https://www.strava.com/challenges/${id}` };
 }
 
 async function fetchChallenge(id: number): Promise<Challenge | null> {
-  const response = await fetch(`https://www.strava.com/challenges/${id}`, {
-    headers: {
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "Accept-Language": "en-US,en;q=0.9",
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
-    }
-  });
-  if (response.status === 404) return null;
-  if (!response.ok) throw new Error(`Strava returned HTTP ${response.status}`);
-  const html = await response.text();
-  if (/page not found|challenge not found|does not exist/i.test(html)) return null;
-  return parseChallenge(id, html);
+    const response = await fetch(`https://www.strava.com/challenges/${id}`, {
+        headers: {
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+        }
+    });
+    if (response.status === 404) return null;
+    if (!response.ok) throw new Error(`Strava returned HTTP ${response.status}`);
+    const html = await response.text();
+    if (/page not found|challenge not found|does not exist/i.test(html)) return null;
+    return parseChallenge(id, html);
 }
 
 function isIncomplete(challenge: Challenge): boolean {
-  return (
-    challenge.description === "Description unavailable" &&
-    challenge.dateInterval === "Dates unavailable" &&
-    challenge.qualifyingActivities === "Activities unavailable"
-  );
+    return (
+        challenge.description === "Description unavailable" &&
+        challenge.dateInterval === "Dates unavailable" &&
+        challenge.qualifyingActivities === "Activities unavailable"
+    );
 }
 
 async function state(db: D1Database, key: string, fallback: string): Promise<string> {
-  return (await db.prepare("SELECT value FROM scan_state WHERE key = ?").bind(key).first<{ value: string }>())?.value ?? fallback;
+    return (await db.prepare("SELECT value FROM scan_state WHERE key = ?").bind(key).first<{ value: string }>())?.value ?? fallback;
 }
 
 async function setState(db: D1Database, key: string, value: string): Promise<void> {
-  await db.prepare("INSERT INTO scan_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(key, value).run();
+    await db.prepare("INSERT INTO scan_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(key, value).run();
 }
 
 async function notify(env: Env, challenge: Challenge): Promise<void> {
-  // Escape all MarkdownV2 reserved characters in dynamic content.
-  const esc = (s: string) => s.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, "\\$&");
+    // Escape all MarkdownV2 reserved characters in dynamic content.
+    const esc = (s: string) => s.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, "\\$&");
 
-  const message = [
-    `⚡ *New Strava Challenge Detected\\!*`,
-    ``,
-    `🏆 *${esc(challenge.title)}*`,
-    ``,
-    `📝 ${esc(challenge.description)}`,
-    ``,
-    `📅 *Date Interval:* ${esc(challenge.dateInterval)}`,
-    `🏃 *Activities:* ${esc(challenge.qualifyingActivities)}`,
-    ``,
-    `[👉 View on Strava](${challenge.url})`,
-  ].join("\n");
+    const message = [
+        `🏆 *${esc(challenge.title)}*`,        
+        `_${esc(challenge.description)}_`,
+        ``,
+        `📅 ${esc(challenge.dateInterval)}`,
+        ``,
+        `🏃 *Activities:* ${esc(challenge.qualifyingActivities)}`,
+        ``,
+        `[👉 View on Strava](${challenge.url})`,
+    ].join("\n");
 
-  const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      chat_id: env.TELEGRAM_CHAT_ID,
-      text: message,
-      parse_mode: "MarkdownV2",
-      link_preview_options: { is_disabled: false, prefer_large_media: true, show_above_text: false },
-    }),
-  });
-  if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(`Telegram returned HTTP ${response.status}: ${errorBody}`);
-  }
+    const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+            chat_id: env.TELEGRAM_CHAT_ID,
+            text: message,
+            parse_mode: "MarkdownV2",
+            link_preview_options: { is_disabled: false, prefer_large_media: true, show_above_text: false },
+        }),
+    });
+    if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`Telegram returned HTTP ${response.status}: ${errorBody}`);
+    }
 }
 
 
 async function scan(env: Env): Promise<{ found: number; missing: number; errors: number }> {
-  let nextId = Number(await state(env.DB, "next_id", env.START_ID));
-  let consecutiveMissing = Number(await state(env.DB, "consecutive_missing", "0"));
-  let found = 0;
-  let missing = 0;
-  let errors = 0;
-  // Reset any previously "found" challenges whose data is all-unavailable back to missing so they are retried.
-  await env.DB.prepare(
-    "UPDATE attempts SET status = 'missing', next_retry_at = ? " +
-    "WHERE id IN (" +
-    "  SELECT c.id FROM challenges c INNER JOIN attempts a ON c.id = a.id " +
-    "  WHERE a.status = 'found' " +
-    "  AND c.description = 'Description unavailable' " +
-    "  AND c.date_interval = 'Dates unavailable' " +
-    "  AND c.qualifying_activities = 'Activities unavailable'" +
-    ")"
-  ).bind(new Date().toISOString()).run();
-  const retryRows = await env.DB.prepare("SELECT id FROM attempts WHERE status != 'found' AND next_retry_at <= ? ORDER BY id LIMIT 20").bind(new Date().toISOString()).all<{ id: number }>();
-  const ids = [...new Set([...(retryRows.results ?? []).map((row) => row.id), ...Array.from({ length: 20 }, (_, index) => nextId + index)])].sort((a, b) => a - b);
-  for (const id of ids) {
-    try {
-      const challenge = await fetchChallenge(id);
-      if (!challenge) {
-        missing++;
-        consecutiveMissing++;
-        await env.DB.prepare("INSERT INTO attempts (id, status, last_checked_at, next_retry_at, attempts) VALUES (?, 'missing', ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'missing', last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at, attempts = attempts + 1").bind(id, new Date().toISOString(), new Date(Date.now() + retryDelayMs).toISOString()).run();
-        if (id >= nextId && consecutiveMissing >= missingLimit) break;
-        continue;
-      }
-      // Challenge page exists but all key fields failed to parse — treat as missing and retry next cycle.
-      if (isIncomplete(challenge)) {
-        missing++;
-        consecutiveMissing = 0; // Page exists, don't count against the consecutive-missing stop limit.
-        await env.DB.prepare("INSERT INTO attempts (id, status, last_checked_at, next_retry_at, attempts) VALUES (?, 'missing', ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'missing', last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at, attempts = attempts + 1").bind(id, new Date().toISOString(), new Date(Date.now() + retryDelayMs).toISOString()).run();
-        if (id >= nextId) nextId = id + 1; // Still advance the scan pointer so we don't stall.
-        continue;
-      }
-      found++;
-      consecutiveMissing = 0;
-      const existing = await env.DB.prepare("SELECT id FROM challenges WHERE id = ?").bind(id).first();
-      await env.DB.prepare("INSERT OR REPLACE INTO challenges (id, title, description, date_interval, qualifying_activities, url, detected_at, notified_at) VALUES (?, ?, ?, ?, ?, ?, COALESCE((SELECT detected_at FROM challenges WHERE id = ?), ?), ?)").bind(id, challenge.title, challenge.description, challenge.dateInterval, challenge.qualifyingActivities, challenge.url, id, new Date().toISOString(), existing ? (await state(env.DB, `notified:${id}`, "")) : null).run();
-      await env.DB.prepare("INSERT INTO attempts (id, status, last_checked_at, next_retry_at, attempts) VALUES (?, 'found', ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'found', last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at").bind(id, new Date().toISOString(), new Date(Date.now() + retryDelayMs).toISOString()).run();
-      if (!existing) {
-        try { await notify(env, challenge); await setState(env.DB, `notified:${id}`, new Date().toISOString()); await env.DB.prepare("UPDATE challenges SET notified_at = ? WHERE id = ?").bind(new Date().toISOString(), id).run(); } catch (error) { errors++; await setState(env.DB, `notified:${id}`, ""); }
-      }
-      if (id >= nextId) nextId = id + 1;
-    } catch (error) {
-      errors++;
-      await env.DB.prepare("INSERT INTO attempts (id, status, last_error, last_checked_at, next_retry_at, attempts) VALUES (?, 'error', ?, ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'error', last_error = excluded.last_error, last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at, attempts = attempts + 1").bind(id, String(error), new Date().toISOString(), new Date(Date.now() + retryDelayMs).toISOString()).run();
+    let nextId = Number(await state(env.DB, "next_id", env.START_ID));
+    let consecutiveMissing = Number(await state(env.DB, "consecutive_missing", "0"));
+    let found = 0;
+    let missing = 0;
+    let errors = 0;
+    // Reset any previously "found" challenges whose data is all-unavailable back to missing so they are retried.
+    await env.DB.prepare(
+        "UPDATE attempts SET status = 'missing', next_retry_at = ? " +
+        "WHERE id IN (" +
+        "  SELECT c.id FROM challenges c INNER JOIN attempts a ON c.id = a.id " +
+        "  WHERE a.status = 'found' " +
+        "  AND c.description = 'Description unavailable' " +
+        "  AND c.date_interval = 'Dates unavailable' " +
+        "  AND c.qualifying_activities = 'Activities unavailable'" +
+        ")"
+    ).bind(new Date().toISOString()).run();
+    const retryRows = await env.DB.prepare("SELECT id FROM attempts WHERE status != 'found' AND next_retry_at <= ? ORDER BY id LIMIT 20").bind(new Date().toISOString()).all<{ id: number }>();
+    const ids = [...new Set([...(retryRows.results ?? []).map((row) => row.id), ...Array.from({ length: 20 }, (_, index) => nextId + index)])].sort((a, b) => a - b);
+    for (const id of ids) {
+        try {
+            const challenge = await fetchChallenge(id);
+            if (!challenge) {
+                missing++;
+                consecutiveMissing++;
+                await env.DB.prepare("INSERT INTO attempts (id, status, last_checked_at, next_retry_at, attempts) VALUES (?, 'missing', ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'missing', last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at, attempts = attempts + 1").bind(id, new Date().toISOString(), new Date(Date.now() + retryDelayMs).toISOString()).run();
+                if (id >= nextId && consecutiveMissing >= missingLimit) break;
+                continue;
+            }
+            // Challenge page exists but all key fields failed to parse — treat as missing and retry next cycle.
+            if (isIncomplete(challenge)) {
+                missing++;
+                consecutiveMissing = 0; // Page exists, don't count against the consecutive-missing stop limit.
+                await env.DB.prepare("INSERT INTO attempts (id, status, last_checked_at, next_retry_at, attempts) VALUES (?, 'missing', ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'missing', last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at, attempts = attempts + 1").bind(id, new Date().toISOString(), new Date(Date.now() + retryDelayMs).toISOString()).run();
+                if (id >= nextId) nextId = id + 1; // Still advance the scan pointer so we don't stall.
+                continue;
+            }
+            found++;
+            consecutiveMissing = 0;
+            const existing = await env.DB.prepare("SELECT id FROM challenges WHERE id = ?").bind(id).first();
+            await env.DB.prepare("INSERT OR REPLACE INTO challenges (id, title, description, date_interval, qualifying_activities, url, detected_at, notified_at) VALUES (?, ?, ?, ?, ?, ?, COALESCE((SELECT detected_at FROM challenges WHERE id = ?), ?), ?)").bind(id, challenge.title, challenge.description, challenge.dateInterval, challenge.qualifyingActivities, challenge.url, id, new Date().toISOString(), existing ? (await state(env.DB, `notified:${id}`, "")) : null).run();
+            await env.DB.prepare("INSERT INTO attempts (id, status, last_checked_at, next_retry_at, attempts) VALUES (?, 'found', ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'found', last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at").bind(id, new Date().toISOString(), new Date(Date.now() + retryDelayMs).toISOString()).run();
+            if (!existing) {
+                try { await notify(env, challenge); await setState(env.DB, `notified:${id}`, new Date().toISOString()); await env.DB.prepare("UPDATE challenges SET notified_at = ? WHERE id = ?").bind(new Date().toISOString(), id).run(); } catch (error) { errors++; await setState(env.DB, `notified:${id}`, ""); }
+            }
+            if (id >= nextId) nextId = id + 1;
+        } catch (error) {
+            errors++;
+            await env.DB.prepare("INSERT INTO attempts (id, status, last_error, last_checked_at, next_retry_at, attempts) VALUES (?, 'error', ?, ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'error', last_error = excluded.last_error, last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at, attempts = attempts + 1").bind(id, String(error), new Date().toISOString(), new Date(Date.now() + retryDelayMs).toISOString()).run();
+        }
     }
-  }
-  await setState(env.DB, "next_id", String(nextId));
-  await setState(env.DB, "consecutive_missing", String(consecutiveMissing));
-  await setState(env.DB, "last_scan_at", new Date().toISOString());
-  await setState(env.DB, "last_scan_result", `${found} found, ${missing} missing, ${errors} errors`);
-  return { found, missing, errors };
+    await setState(env.DB, "next_id", String(nextId));
+    await setState(env.DB, "consecutive_missing", String(consecutiveMissing));
+    await setState(env.DB, "last_scan_at", new Date().toISOString());
+    await setState(env.DB, "last_scan_result", `${found} found, ${missing} missing, ${errors} errors`);
+    return { found, missing, errors };
 }
 
 function getNextScheduledScan(now = new Date()): string {
-  const y = now.getUTCFullYear();
-  const m = now.getUTCMonth();
-  const d = now.getUTCDate();
-  const slot1 = new Date(Date.UTC(y, m, d, 7, 0, 0, 0));
-  const slot2 = new Date(Date.UTC(y, m, d, 19, 0, 0, 0));
-  const slotTomorrow = new Date(Date.UTC(y, m, d + 1, 7, 0, 0, 0));
+    const y = now.getUTCFullYear();
+    const m = now.getUTCMonth();
+    const d = now.getUTCDate();
+    const slot1 = new Date(Date.UTC(y, m, d, 7, 0, 0, 0));
+    const slot2 = new Date(Date.UTC(y, m, d, 19, 0, 0, 0));
+    const slotTomorrow = new Date(Date.UTC(y, m, d + 1, 7, 0, 0, 0));
 
-  if (now.getTime() < slot1.getTime()) {
-    return slot1.toISOString();
-  } else if (now.getTime() < slot2.getTime()) {
-    return slot2.toISOString();
-  } else {
-    return slotTomorrow.toISOString();
-  }
+    if (now.getTime() < slot1.getTime()) {
+        return slot1.toISOString();
+    } else if (now.getTime() < slot2.getTime()) {
+        return slot2.toISOString();
+    } else {
+        return slotTomorrow.toISOString();
+    }
 }
 
 const dashboard = `<!doctype html>
@@ -730,6 +728,27 @@ const dashboard = `<!doctype html>
     transform: translateX(2px);
   }
 
+  .btn-resend {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent-light);
+    background: rgba(252, 82, 0, 0.1);
+    border: 1px solid rgba(252, 82, 0, 0.25);
+    padding: 6px 14px;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .btn-resend:hover {
+    background: rgba(252, 82, 0, 0.2);
+    border-color: rgba(252, 82, 0, 0.5);
+    color: #ffffff;
+    transform: translateX(2px);
+  }
+
   /* Empty State */
   .empty-state {
     text-align: center;
@@ -1108,6 +1127,10 @@ function renderChallenges() {
             '<span>Open on Strava</span>' +
             '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>' +
           '</a>' +
+          '<button class="btn-resend" type="button" data-id="' + c.id + '" data-url="/api/challenges/' + c.id + '/notify">' +
+            '<span>Resend</span>' +
+            '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6H7a3 3 0 0 0-3 3v2" /><polyline points="14 3 17 6 14 9" /><path d="M7 18h10a3 3 0 0 0 3-3v-2" /><polyline points="10 21 7 18 10 15" /></svg>'+ 
+          '</button>' +
         '</div>' +
       '</div>' +
     '</article>';
@@ -1186,6 +1209,22 @@ async function triggerScan() {
 document.getElementById('btn-refresh').addEventListener('click', load);
 document.getElementById('btn-scan').addEventListener('click', triggerScan);
 
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.btn-resend');
+  if (!btn) return;
+  btn.disabled = true;
+  try {
+    const res = await fetch(btn.dataset.url, { method: 'POST' });
+    const data = await res.json();
+    if (res.ok && data.success) showToast('Message resend successful.', false);
+    else showToast('Resend failed: ' + (data.detail || data.error), true);
+  } catch (err) {
+    showToast('Resend failed: ' + err.message, true);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 document.getElementById('search-input').addEventListener('input', (e) => {
   searchQuery = e.target.value.trim().toLowerCase();
   renderChallenges();
@@ -1209,47 +1248,60 @@ load();
 </html>`;
 
 export default {
-  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> { ctx.waitUntil(scan(env)); },
-  async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
-    if (url.pathname === "/") return new Response(dashboard, { headers: { "content-type": "text/html;charset=UTF-8" } });
-    if (url.pathname === "/api/health") return Response.json({ ok: true });
-    if (url.pathname === "/api/status") {
-      const [lastScanAt, nextId, consecutiveMissing, lastScanResult, challenges] = await Promise.all([
-        state(env.DB, "last_scan_at", ""),
-        state(env.DB, "next_id", env.START_ID),
-        state(env.DB, "consecutive_missing", "0"),
-        state(env.DB, "last_scan_result", "Never scanned"),
-        env.DB.prepare("SELECT id, title, description, date_interval AS dateInterval, qualifying_activities AS qualifyingActivities, url, detected_at AS detectedAt FROM challenges ORDER BY id DESC LIMIT 50").all()
-      ]);
-      const nextScanAt = getNextScheduledScan();
-      return Response.json({
-        lastScanAt,
-        nextId: Number(nextId),
-        consecutiveMissing: Number(consecutiveMissing),
-        lastScanResult,
-        nextScanAt,
-        cronSchedule: "0 7,19 * * *",
-        challenges: challenges.results ?? []
-      });
+    async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> { ctx.waitUntil(scan(env)); },
+    async fetch(request: Request, env: Env): Promise<Response> {
+        const url = new URL(request.url);
+        if (url.pathname === "/") return new Response(dashboard, { headers: { "content-type": "text/html;charset=UTF-8" } });
+        if (url.pathname === "/api/health") return Response.json({ ok: true });
+        if (url.pathname === "/api/status") {
+            const [lastScanAt, nextId, consecutiveMissing, lastScanResult, challenges] = await Promise.all([
+                state(env.DB, "last_scan_at", ""),
+                state(env.DB, "next_id", env.START_ID),
+                state(env.DB, "consecutive_missing", "0"),
+                state(env.DB, "last_scan_result", "Never scanned"),
+                env.DB.prepare("SELECT id, title, description, date_interval AS dateInterval, qualifying_activities AS qualifyingActivities, url, detected_at AS detectedAt FROM challenges ORDER BY id DESC LIMIT 50").all()
+            ]);
+            const nextScanAt = getNextScheduledScan();
+            return Response.json({
+                lastScanAt,
+                nextId: Number(nextId),
+                consecutiveMissing: Number(consecutiveMissing),
+                lastScanResult,
+                nextScanAt,
+                cronSchedule: "0 7,19 * * *",
+                challenges: challenges.results ?? []
+            });
+        }
+        const singleChallengeMatch = url.pathname.match(/^\/api\/challenges\/(\d+)$/);
+        if (singleChallengeMatch && request.method === "GET") {
+            //if (request.headers.get("authorization") !== `Bearer ${env.SCAN_ADMIN_TOKEN}`) return Response.json({ error: "Unauthorized" }, { status: 401 });
+            const id = Number(singleChallengeMatch[1]);
+            try {
+                const challenge = await fetchChallenge(id);
+                if (!challenge) return Response.json({ error: "Challenge not found", id }, { status: 404 });
+                return Response.json({ challenge });
+            } catch (error) {
+                return Response.json({ error: "Unable to check challenge", detail: String(error), id }, { status: 502 });
+            }
+        }
+        if (url.pathname.match(/^\/api\/challenges\/(\d+)\/notify$/) && request.method === "POST") {
+            const id = Number(url.pathname.match(/^\/api\/challenges\/(\d+)\/notify$/)?.[1]);
+            try {
+                const challenge = await fetchChallenge(id);
+                if (!challenge) return Response.json({ error: "Challenge not found", id }, { status: 404 });
+                await notify(env, challenge);
+                await setState(env.DB, `notified:${id}`, new Date().toISOString());
+                await env.DB.prepare("UPDATE challenges SET notified_at = ? WHERE id = ?").bind(new Date().toISOString(), id).run();
+                return Response.json({ success: true, id });
+            } catch (error) {
+                return Response.json({ error: "Unable to resend", detail: String(error), id }, { status: 502 });
+            }
+        }
+        if (url.pathname === "/api/scan" && request.method === "POST") {
+            //if (request.headers.get("authorization") !== `Bearer ${env.SCAN_ADMIN_TOKEN}`) return Response.json({ error: "Unauthorized" }, { status: 401 });
+            return Response.json(await scan(env));
+        }
+        return new Response("Not found", { status: 404 });
     }
-    const singleChallengeMatch = url.pathname.match(/^\/api\/challenges\/(\d+)$/);
-    if (singleChallengeMatch && request.method === "GET") {
-      //if (request.headers.get("authorization") !== `Bearer ${env.SCAN_ADMIN_TOKEN}`) return Response.json({ error: "Unauthorized" }, { status: 401 });
-      const id = Number(singleChallengeMatch[1]);
-      try {
-        const challenge = await fetchChallenge(id);
-        if (!challenge) return Response.json({ error: "Challenge not found", id }, { status: 404 });
-        return Response.json({ challenge });
-      } catch (error) {
-        return Response.json({ error: "Unable to check challenge", detail: String(error), id }, { status: 502 });
-      }
-    }
-    if (url.pathname === "/api/scan" && request.method === "POST") {
-      //if (request.headers.get("authorization") !== `Bearer ${env.SCAN_ADMIN_TOKEN}`) return Response.json({ error: "Unauthorized" }, { status: 401 });
-      return Response.json(await scan(env));
-    }
-    return new Response("Not found", { status: 404 });
-  }
 };
 
