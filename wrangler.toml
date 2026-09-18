@@ -3,7 +3,7 @@ main = "src/index.ts"
 compatibility_date = "2026-09-16"
 
 [triggers]
-crons = ["0 7,19 * * *"]
+crons = ["0 1,7,13,19 * * *"]
 
 [[d1_databases]]
 binding = "DB"

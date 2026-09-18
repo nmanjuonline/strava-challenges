@@ -829,7 +829,7 @@ const dashboard = `<!doctype html>
     <div class="nav-actions">
       <div class="live-indicator">
         <span class="beacon-dot"></span>
-        <span>Scheduled 2x/day</span>
+        <span>Scheduled 4x/day</span>
       </div>
       <button class="btn btn-ghost" id="btn-refresh" title="Refresh dashboard data">
         <svg id="refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1008,13 +1008,19 @@ function computeClientNextScanIso() {
   const y = now.getUTCFullYear();
   const m = now.getUTCMonth();
   const d = now.getUTCDate();
-  const slot1 = new Date(Date.UTC(y, m, d, 7, 0, 0, 0));
-  const slot2 = new Date(Date.UTC(y, m, d, 19, 0, 0, 0));
-  const slotTomorrow = new Date(Date.UTC(y, m, d + 1, 7, 0, 0, 0));
 
-  if (now.getTime() < slot1.getTime()) return slot1.toISOString();
-  if (now.getTime() < slot2.getTime()) return slot2.toISOString();
-  return slotTomorrow.toISOString();
+  //const slot1 = new Date(Date.UTC(y, m, d, 7, 0, 0, 0));
+  //const slot2 = new Date(Date.UTC(y, m, d, 19, 0, 0, 0));
+  //const slotTomorrow = new Date(Date.UTC(y, m, d + 1, 7, 0, 0, 0));
+  
+  //if (now.getTime() < slot1.getTime()) return slot1.toISOString();
+  //if (now.getTime() < slot2.getTime()) return slot2.toISOString();
+  //return slotTomorrow.toISOString();
+
+  const slots = [1, 7, 13, 19].map(h => new Date(Date.UTC(y, m, d, h, 0, 0, 0)));
+  const next = slots.find(s => now.getTime() < s.getTime());
+  if (next) return next.toISOString();
+  return new Date(Date.UTC(y, m, d + 1, 1, 0, 0, 0)).toISOString();
 }
 
 function formatLocalDateTime(isoString) {
@@ -1265,7 +1271,7 @@ export default {
                 state(env.DB, "next_id", env.START_ID),
                 state(env.DB, "consecutive_missing", "0"),
                 state(env.DB, "last_scan_result", "Never scanned"),
-                env.DB.prepare("SELECT id, title, description, date_interval AS dateInterval, qualifying_activities AS qualifyingActivities, url, detected_at AS detectedAt FROM challenges ORDER BY id DESC LIMIT 50").all()
+                env.DB.prepare("SELECT id, title, description, date_interval AS dateInterval, qualifying_activities AS qualifyingActivities, url, detected_at AS detectedAt FROM challenges ORDER BY detectedAt DESC LIMIT 50").all()
             ]);
             const nextScanAt = getNextScheduledScan();
             return Response.json({
