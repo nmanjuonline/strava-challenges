@@ -177,10 +177,14 @@ async function scan(env: Env): Promise<{ found: number; missing: number; errors:
             await env.DB.prepare("INSERT INTO attempts (id, status, last_error, last_checked_at, next_retry_at, attempts) VALUES (?, 'error', ?, ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'error', last_error = excluded.last_error, last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at, attempts = attempts + 1").bind(id, String(error), new Date().toISOString(), new Date(Date.now() + retryDelayMs).toISOString()).run();
         }
     }
-    await setState(env.DB, "next_id", String(nextId));
-    await setState(env.DB, "consecutive_missing", String(consecutiveMissing));
-    await setState(env.DB, "last_scan_at", new Date().toISOString());
-    await setState(env.DB, "last_scan_result", `${found} found, ${missing} missing, ${errors} errors`);
+
+    const now = new Date().toISOString();
+    await env.DB.batch([
+        env.DB.prepare("INSERT INTO scan_state (key, value) VALUES ('next_id', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(String(nextId)),
+        env.DB.prepare("INSERT INTO scan_state (key, value) VALUES ('consecutive_missing', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(String(consecutiveMissing)),
+        env.DB.prepare("INSERT INTO scan_state (key, value) VALUES ('last_scan_at', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(now),
+        env.DB.prepare("INSERT INTO scan_state (key, value) VALUES ('last_scan_result', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(`${found} found, ${missing} missing, ${errors} errors`),
+    ]);
     return { found, missing, errors };
 }
 
