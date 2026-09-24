@@ -850,7 +850,6 @@ const dashboard = `<!doctype html>
     color: #ffffff;
     transform: translateX(2px);
   }
-
   .btn-resend {
     display: inline-flex;
     align-items: center;
@@ -870,6 +869,7 @@ const dashboard = `<!doctype html>
     border-color: rgba(252, 82, 0, 0.5);
     color: #ffffff;
     transform: translateX(2px);
+    cursor: pointer;
   }
 
   /* Empty State */
@@ -1256,7 +1256,7 @@ function renderChallenges() {
             '<span>Open on Strava</span>' +
             '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>' +
           '</a>' +
-          '<button class="btn-resend" type="button" data-id="' + c.id + '" data-url="/api/challenges/' + c.id + '/notify">' +
+          '<button class="btn-resend" data-id="' + c.id + '" data-url="/api/challenges/' + c.id + '/notify">' +
             '<span>Resend</span>' +
             '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6H7a3 3 0 0 0-3 3v2" /><polyline points="14 3 17 6 14 9" /><path d="M7 18h10a3 3 0 0 0 3-3v-2" /><polyline points="10 21 7 18 10 15" /></svg>'+ 
           '</button>' +
