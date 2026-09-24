@@ -996,7 +996,7 @@ const dashboard = `<!doctype html>
       </div>
       <div class="stat-meta" style="margin-top: 10px;">
         <div id="next-scan-local-meta">Local Time</div>
-        <div style="font-size: 11px; opacity: 0.7;">Cadence: 01:00, 07:00, 13:00 & 19:00 UTC (4x daily)</div>
+        <div id="cadence-text" style="font-size: 11px; opacity: 0.7;">Cadence: 01:00, 07:00, 13:00 & 19:00 UTC (4x daily)</div>
       </div>
     </div>
 
@@ -1229,7 +1229,7 @@ function renderChallenges() {
 
   if (!filtered.length) {
     if (allChallenges.length === 0) {
-      list.innerHTML = '<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-title">No challenges discovered yet</div><div class="empty-desc">The scanner runs every 12 hours. You can also trigger an on-demand scan above!</div></div>';
+      list.innerHTML = '<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-title">No challenges discovered yet</div><div class="empty-desc">The scanner runs every 6 hours. You can also trigger an on-demand scan above!</div></div>';
     } else {
       list.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">No matching challenges</div><div class="empty-desc">Try modifying your search keywords or filter pills.</div></div>';
     }
@@ -1367,6 +1367,17 @@ document.querySelectorAll('.filter-chip').forEach(chip => {
     renderChallenges();
   });
 });
+
+// Localize Cadence text
+const formatLocal = (utcHour) => {
+  const d = new Date();
+  d.setUTCHours(utcHour, 0, 0, 0);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+const cadenceEl = document.getElementById('cadence-text');
+if (cadenceEl) {
+  cadenceEl.textContent = 'Cadence: ' + formatLocal(1) + ', ' + formatLocal(7) + ', ' + formatLocal(13) + ' & ' + formatLocal(19) + ' Local Time (4x daily)';
+}
 
 // Update countdown every 10 seconds
 setInterval(updateNextScanDisplay, 10000);
