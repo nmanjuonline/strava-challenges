@@ -120,7 +120,7 @@ async function notify(env: Env, challenge: Challenge): Promise<void> {
         ``,
         `📅 ${esc(challenge.dateInterval)}`,
         ``,
-        `🏃 <i>${esc(challenge.qualifyingActivities)}`,
+        `🏃 <i>${esc(challenge.qualifyingActivities)}</i>`,
     ].join("\n");
 
     const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
