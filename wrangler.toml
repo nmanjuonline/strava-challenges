@@ -11,7 +11,8 @@ database_name = "strava-challenges"
 database_id = "ee4de2fe-9cc8-42c1-965f-696713ad999f"
 
 [vars]
-START_ID = "6434"
+START_ID = "6430"
+FETCH_BATCH_SIZE = "20"
 
 # ...
 [observability.logs]

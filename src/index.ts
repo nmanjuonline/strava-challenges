@@ -4,6 +4,7 @@ export interface Env {
     TELEGRAM_BOT_TOKEN: string;
     TELEGRAM_CHAT_ID: string;
     SCAN_ADMIN_TOKEN: string;
+    FETCH_BATCH_SIZE?: string;
 }
 
 type Challenge = {
@@ -155,6 +156,7 @@ async function sendScanReport(env: Env, result: { found: number; missing: number
 }
 
 async function scan(env: Env): Promise<{ found: number; missing: number; errors: number }> {
+    const fetchBatchSize = env.FETCH_BATCH_SIZE ? Number(env.FETCH_BATCH_SIZE) : 8;
     let nextId = Number(await state(env.DB, "next_id", env.START_ID));
     let consecutiveMissing = Number(await state(env.DB, "consecutive_missing", "0"));
     let found = 0;
@@ -171,54 +173,91 @@ async function scan(env: Env): Promise<{ found: number; missing: number; errors:
         "  AND c.qualifying_activities = 'Activities unavailable'" +
         ")"
     ).bind(new Date().toISOString()).run();
-    const retryRows = await env.DB.prepare("SELECT id FROM attempts WHERE status != 'found' AND next_retry_at <= ? ORDER BY id LIMIT 8").bind(new Date().toISOString()).all<{ id: number }>();
-    const ids = [...new Set([...(retryRows.results ?? []).map((row) => row.id), ...Array.from({ length: 8 }, (_, index) => nextId + index)])].sort((a, b) => a - b);
-    for (const id of ids) {
-        try {
-            const challenge = await fetchChallenge(id);
-            if (!challenge) {
-                missing++;
-                consecutiveMissing++;
-                await env.DB.prepare("INSERT INTO attempts (id, status, last_checked_at, next_retry_at, attempts) VALUES (?, 'missing', ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'missing', last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at, attempts = attempts + 1").bind(id, new Date().toISOString(), new Date(Date.now() + retryDelayMs).toISOString()).run();
-                if (id >= nextId && consecutiveMissing >= missingLimit) break;
-                continue;
+    const retryRows = await env.DB.prepare(`SELECT id FROM attempts WHERE status != 'found' AND next_retry_at <= ? ORDER BY id LIMIT ${fetchBatchSize}`).bind(new Date().toISOString()).all<{ id: number }>();
+    const retryIds = new Set((retryRows.results ?? []).map((row) => row.id));
+    const newIdsStart = nextId;
+    const newIds = Array.from({ length: fetchBatchSize }, (_, index) => nextId + index);
+    const ids = [...new Set([...retryIds, ...newIds])].sort((a, b) => a - b);
+    
+    let foundAnyNew = false;
+    let deferredMissingNewIds: number[] = [];
+    let highestFoundNewId = -1;
+
+    const fetchResults = await Promise.all(
+        ids.map(async (id) => {
+            try {
+                return { id, challenge: await fetchChallenge(id), error: null };
+            } catch (error) {
+                return { id, challenge: null, error };
             }
-            // Challenge page exists but all key fields failed to parse — treat as missing and retry next cycle.
-            if (isIncomplete(challenge)) {
-                missing++;
-                consecutiveMissing = 0; // Page exists, don't count against the consecutive-missing stop limit.
-                await env.DB.prepare("INSERT INTO attempts (id, status, last_checked_at, next_retry_at, attempts) VALUES (?, 'missing', ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'missing', last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at, attempts = attempts + 1").bind(id, new Date().toISOString(), new Date(Date.now() + retryDelayMs).toISOString()).run();
-                if (id >= nextId) nextId = id + 1; // Still advance the scan pointer so we don't stall.
-                continue;
-            }
-            found++;
-            consecutiveMissing = 0;
-            const existing = await env.DB.prepare("SELECT id FROM challenges WHERE id = ?").bind(id).first();
-            const detectedAtFallback = new Date().toISOString();
-            // Combine the challenge upsert + attempts upsert into a single batched subrequest.
-            await env.DB.batch([
-                env.DB.prepare("INSERT OR REPLACE INTO challenges (id, title, description, date_interval, qualifying_activities, url, detected_at, notified_at) VALUES (?, ?, ?, ?, ?, ?, COALESCE((SELECT detected_at FROM challenges WHERE id = ?), ?), ?)").bind(id, challenge.title, challenge.description, challenge.dateInterval, challenge.qualifyingActivities, challenge.url, id, detectedAtFallback, existing ? (await state(env.DB, `notified:${id}`, "")) : null),
-                env.DB.prepare("INSERT INTO attempts (id, status, last_checked_at, next_retry_at, attempts) VALUES (?, 'found', ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'found', last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at").bind(id, new Date().toISOString(), new Date(Date.now() + retryDelayMs).toISOString()),
-            ]);
-            if (!existing) {
-                try {
-                    await notify(env, challenge);
-                    const notifiedAt = new Date().toISOString();
-                    // Combine the "notified" state write + challenges.notified_at update into a single batched subrequest.
-                    await env.DB.batch([
-                        env.DB.prepare("INSERT INTO scan_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(`notified:${id}`, notifiedAt),
-                        env.DB.prepare("UPDATE challenges SET notified_at = ? WHERE id = ?").bind(notifiedAt, id),
-                    ]);
-                } catch (error) {
-                    errors++;
-                    await setState(env.DB, `notified:${id}`, "");
-                }
-            }
-            if (id >= nextId) nextId = id + 1;
-        } catch (error) {
+        })
+    );
+
+    for (const result of fetchResults) {
+        const { id, challenge, error } = result;
+        if (error) {
             errors++;
             await env.DB.prepare("INSERT INTO attempts (id, status, last_error, last_checked_at, next_retry_at, attempts) VALUES (?, 'error', ?, ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'error', last_error = excluded.last_error, last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at, attempts = attempts + 1").bind(id, String(error), new Date().toISOString(), new Date(Date.now() + retryDelayMs).toISOString()).run();
+            continue;
         }
+
+        if (!challenge) {
+            missing++;
+            consecutiveMissing++;
+            if (retryIds.has(id)) {
+                // Known retry-queue id, still missing — keep tracking it and push its next retry out.
+                await env.DB.prepare("INSERT INTO attempts (id, status, last_checked_at, next_retry_at, attempts) VALUES (?, 'missing', ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'missing', last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at, attempts = attempts + 1").bind(id, new Date().toISOString(), new Date(Date.now() + retryDelayMs).toISOString()).run();
+            } else if (id >= newIdsStart) {
+                deferredMissingNewIds.push(id);
+            }
+            continue;
+        }
+        // Challenge page exists but all key fields failed to parse — treat as missing and retry next cycle.
+        if (isIncomplete(challenge)) {
+            missing++;
+            consecutiveMissing = 0; // Page exists, don't count against the consecutive-missing stop limit.
+            await env.DB.prepare("INSERT INTO attempts (id, status, last_checked_at, next_retry_at, attempts) VALUES (?, 'missing', ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'missing', last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at, attempts = attempts + 1").bind(id, new Date().toISOString(), new Date(Date.now() + retryDelayMs).toISOString()).run();
+            // We also defer this so that if a valid one is found later, it's covered?
+            // Wait, it's already inserted into attempts as missing right here, so we don't need to defer it.
+            continue;
+        }
+
+        // We only reach here if the challenge is COMPLETELY VALID
+        if (id >= newIdsStart) {
+            foundAnyNew = true;
+            highestFoundNewId = Math.max(highestFoundNewId, id);
+        }
+        
+        found++;
+        consecutiveMissing = 0;
+        const existing = await env.DB.prepare("SELECT id FROM challenges WHERE id = ?").bind(id).first();
+        const detectedAtFallback = new Date().toISOString();
+        // Combine the challenge upsert + attempts upsert into a single batched subrequest.
+        await env.DB.batch([
+            env.DB.prepare("INSERT OR REPLACE INTO challenges (id, title, description, date_interval, qualifying_activities, url, detected_at, notified_at) VALUES (?, ?, ?, ?, ?, ?, COALESCE((SELECT detected_at FROM challenges WHERE id = ?), ?), ?)").bind(id, challenge.title, challenge.description, challenge.dateInterval, challenge.qualifyingActivities, challenge.url, id, detectedAtFallback, existing ? (await state(env.DB, `notified:${id}`, "")) : null),
+            env.DB.prepare("INSERT INTO attempts (id, status, last_checked_at, next_retry_at, attempts) VALUES (?, 'found', ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'found', last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at").bind(id, new Date().toISOString(), new Date(Date.now() + retryDelayMs).toISOString()),
+        ]);
+        if (!existing) {
+            try {
+                await notify(env, challenge);
+                const notifiedAt = new Date().toISOString();
+                // Combine the "notified" state write + challenges.notified_at update into a single batched subrequest.
+                await env.DB.batch([
+                    env.DB.prepare("INSERT INTO scan_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(`notified:${id}`, notifiedAt),
+                    env.DB.prepare("UPDATE challenges SET notified_at = ? WHERE id = ?").bind(notifiedAt, id),
+                ]);
+            } catch (error) {
+                errors++;
+                await setState(env.DB, `notified:${id}`, "");
+            }
+        }
+    }
+
+    if (foundAnyNew) {
+        for (const deferredId of deferredMissingNewIds) {
+            await env.DB.prepare("INSERT INTO attempts (id, status, last_checked_at, next_retry_at, attempts) VALUES (?, 'missing', ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'missing', last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at, attempts = attempts + 1").bind(deferredId, new Date().toISOString(), new Date(Date.now() + retryDelayMs).toISOString()).run();
+        }
+        nextId = highestFoundNewId + 1;
     }
 
     const now = new Date().toISOString();
