@@ -15,6 +15,7 @@ type Challenge = {
     dateInterval: string;
     qualifyingActivities: string;
     url: string;
+    imageUrl?: string;
 };
 
 const missingLimit = 4;
@@ -76,7 +77,8 @@ function parseChallenge(id: number, html: string): Challenge {
     const description = meta(html, "og:description") || around(text, "Description") || "Description unavailable";
     const dateInterval = calendarDateInterval(html) || around(text, "Date interval") || around(text, "Dates") || "Dates unavailable";
     const qualifyingActivities = qualifyingActivitiesFromPayload(html) || around(text, "Qualifying activities") || around(text, "Activities") || "Activities unavailable";
-    return { id, title, description, dateInterval, qualifyingActivities, url: `https://www.strava.com/challenges/${id}` };
+    const imageUrl = meta(html, "og:image");
+    return { id, title, description, dateInterval, qualifyingActivities, url: `https://www.strava.com/challenges/${id}`, imageUrl };
 }
 
 async function fetchChallenge(id: number): Promise<Challenge | null> {
@@ -111,16 +113,17 @@ async function setState(db: D1Database, key: string, value: string): Promise<voi
 }
 
 async function notify(env: Env, challenge: Challenge): Promise<void> {
-    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    // Escape all MarkdownV2 reserved characters in dynamic content.
+    const esc = (s: string) => s.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, "\\$&");
 
-    const message = [        
-        `🏆 <b><a href="${challenge.url}">${esc(challenge.title)}</a></b>`,
+    const message = [
+        `*[${challenge.id}: ${esc(challenge.title)}](${challenge.url})*`,
         ``,
-        `<i>${esc(challenge.description)}</i>`,
+        `_${esc(challenge.description)}_`,
         ``,
-        `📅 ${esc(challenge.dateInterval)}`,
+        `*${esc(challenge.dateInterval)}*`,
         ``,
-        `🏃 <i>${esc(challenge.qualifyingActivities)}</i>`,
+        `*Activities:* _${esc(challenge.qualifyingActivities)}_`,
     ].join("\n");
 
     const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -129,8 +132,18 @@ async function notify(env: Env, challenge: Challenge): Promise<void> {
         body: JSON.stringify({
             chat_id: env.TELEGRAM_CHAT_ID,
             text: message,
-            parse_mode: "HTML",
-            link_preview_options: { is_disabled: false, prefer_large_media: true, show_above_text: false },
+            parse_mode: "MarkdownV2",
+            link_preview_options: challenge.imageUrl ? {
+                is_disabled: false,
+                url: challenge.imageUrl,
+                prefer_large_media: true,
+                show_above_text: true
+            } : { is_disabled: true },
+            reply_markup: {
+                inline_keyboard: [[
+                    { text: "Join Challenge", url: challenge.url }
+                ]]
+            }
         }),
     });
     if (!response.ok) {
@@ -141,12 +154,12 @@ async function notify(env: Env, challenge: Challenge): Promise<void> {
 
 async function sendScanReport(env: Env, result: { found: number; missing: number; errors: number }, idsScanned: number): Promise<void> {
     const message = [
-        `📡 <b>Scan complete</b>`,
+        `📡 *Scan complete*`,
         ``,
-        `🆕 Found: <b>${result.found}</b>`,
-        `🚫 Missing: <b>${result.missing}</b>`,
-        `⚠️ Errors: <b>${result.errors}</b>`,
-        `🔢 IDs checked: <b>${idsScanned}</b>`,
+        `🆕 Found: *${result.found}*`,
+        `🚫 Missing: *${result.missing}*`,
+        `⚠️ Errors: *${result.errors}*`,
+        `🔢 IDs checked: *${idsScanned}*`,
         ``,
         `<i>${new Date().toISOString()}</i>`,
     ].join("\n");
@@ -157,7 +170,7 @@ async function sendScanReport(env: Env, result: { found: number; missing: number
         body: JSON.stringify({
             chat_id: env.TELEGRAM_CHAT_MY_ID,
             text: message,
-            parse_mode: "HTML",
+            parse_mode: "MarkdownV2",
         }),
     });
     if (!response.ok) {
@@ -189,7 +202,7 @@ async function scan(env: Env): Promise<{ found: number; missing: number; errors:
     const newIdsStart = nextId;
     const newIds = Array.from({ length: fetchBatchSize }, (_, index) => nextId + index);
     const ids = [...new Set([...retryIds, ...newIds])].sort((a, b) => a - b);
-    
+
     let foundAnyNew = false;
     let deferredMissingNewIds: number[] = [];
     let highestFoundNewId = -1;
@@ -238,7 +251,7 @@ async function scan(env: Env): Promise<{ found: number; missing: number; errors:
             foundAnyNew = true;
             highestFoundNewId = Math.max(highestFoundNewId, id);
         }
-        
+
         found++;
         consecutiveMissing = 0;
         const existing = await env.DB.prepare("SELECT id FROM challenges WHERE id = ?").bind(id).first();
