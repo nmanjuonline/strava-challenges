@@ -3,6 +3,7 @@ export interface Env {
     START_ID: string;
     TELEGRAM_BOT_TOKEN: string;
     TELEGRAM_CHAT_ID: string;
+    TELEGRAM_CHAT_MY_ID: string;
     SCAN_ADMIN_TOKEN: string;
     FETCH_BATCH_SIZE?: string;
 }
@@ -20,7 +21,21 @@ const missingLimit = 4;
 const retryDelayMs = 12 * 60 * 60 * 1000;
 
 function htmlEntityDecode(value: string): string {
-    return value.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
+    let decoded = value;
+    let previous = "";
+    while (decoded !== previous) {
+        previous = decoded;
+        decoded = decoded
+            .replace(/&amp;/gi, "&")
+            .replace(/&quot;/gi, '"')
+            .replace(/&#39;/gi, "'")
+            .replace(/&apos;/gi, "'")
+            .replace(/&lt;/gi, "<")
+            .replace(/&gt;/gi, ">")
+            .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)))
+            .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)));
+    }
+    return decoded.trim();
 }
 
 function meta(html: string, name: string): string {
@@ -96,18 +111,16 @@ async function setState(db: D1Database, key: string, value: string): Promise<voi
 }
 
 async function notify(env: Env, challenge: Challenge): Promise<void> {
-    // Escape all MarkdownV2 reserved characters in dynamic content.
-    const esc = (s: string) => s.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, "\\$&");
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-    const message = [
-        `🏆 *${esc(challenge.title)}*`,        
-        `_${esc(challenge.description)}_`,
+    const message = [        
+        `🏆 <b><a href="${challenge.url}">${esc(challenge.title)}</a></b>`,
         ``,
-        `📅 *${esc(challenge.dateInterval)}*`,
+        `<i>${esc(challenge.description)}</i>`,
         ``,
-        `🏃 *Activities:* _${esc(challenge.qualifyingActivities)}_`,
+        `📅 ${esc(challenge.dateInterval)}`,
         ``,
-        `[👉 View on Strava](${challenge.url})`,
+        `🏃 <i>${esc(challenge.qualifyingActivities)}`,
     ].join("\n");
 
     const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -116,7 +129,7 @@ async function notify(env: Env, challenge: Challenge): Promise<void> {
         body: JSON.stringify({
             chat_id: env.TELEGRAM_CHAT_ID,
             text: message,
-            parse_mode: "MarkdownV2",
+            parse_mode: "HTML",
             link_preview_options: { is_disabled: false, prefer_large_media: true, show_above_text: false },
         }),
     });
@@ -127,26 +140,24 @@ async function notify(env: Env, challenge: Challenge): Promise<void> {
 }
 
 async function sendScanReport(env: Env, result: { found: number; missing: number; errors: number }, idsScanned: number): Promise<void> {
-    const esc = (s: string) => s.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, "\\$&");
-
     const message = [
-        `📡 *Scan complete*`,
+        `📡 <b>Scan complete</b>`,
         ``,
-        `🆕 Found: *${result.found}*`,
-        `🚫 Missing: *${result.missing}*`,
-        `⚠️ Errors: *${result.errors}*`,
-        `🔢 IDs checked: *${idsScanned}*`,
+        `🆕 Found: <b>${result.found}</b>`,
+        `🚫 Missing: <b>${result.missing}</b>`,
+        `⚠️ Errors: <b>${result.errors}</b>`,
+        `🔢 IDs checked: <b>${idsScanned}</b>`,
         ``,
-        `_${esc(new Date().toISOString())}_`,
+        `<i>${new Date().toISOString()}</i>`,
     ].join("\n");
 
     const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-            chat_id: env.TELEGRAM_CHAT_ID,
+            chat_id: env.TELEGRAM_CHAT_MY_ID,
             text: message,
-            parse_mode: "MarkdownV2",
+            parse_mode: "HTML",
         }),
     });
     if (!response.ok) {
