@@ -61,11 +61,13 @@ export class TelegramBroadcaster implements NotificationBroadcaster {
     async notifyBatched(env: Env, challenges: Challenge[]): Promise<void> {
         if (challenges.length === 0) return;
 
-        let text = `*${challenges.length} new challenges found!*\n\n`;
-        challenges.forEach(c => {
-            this.notify(env, c); // Send each challenge as a separate message
-        });
-        // Note: The batched notification doesn't send a single message, but rather individual messages for each challenge
+        // Send each challenge as a separate message sequentially to avoid rate limits
+        // and await them so Cloudflare Workers doesn't terminate early.
+        for (const c of challenges) {
+            await this.notify(env, c);
+            // Delay 100ms between messages to respect Telegram's rate limits
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
     }
 
     async sendScanReport(env: Env, result: ScanReport, idsScanned: number): Promise<void> {
