@@ -1,4 +1,4 @@
-# Strava Challenge Watch
+# Strava Scout Watch
 
 <div align="center">
 
