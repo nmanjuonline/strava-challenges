@@ -1,9 +1,7 @@
 export interface Env {
     DB: D1Database;
     START_ID: string;
-    TELEGRAM_BOT_TOKEN: string;
-    TELEGRAM_CHAT_ID: string;
-    TELEGRAM_CHAT_MY_ID: string;
+    EXPO_PUSH_TOKEN: string;
     SCAN_ADMIN_TOKEN: string;
     FETCH_BATCH_SIZE?: string;
 }
@@ -113,70 +111,91 @@ async function setState(db: D1Database, key: string, value: string): Promise<voi
 }
 
 async function notify(env: Env, challenge: Challenge): Promise<void> {
-    // Escape all MarkdownV2 reserved characters in dynamic content.
-    const esc = (s: string) => s.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, "\\$&");
+    const message = {
+        to: env.EXPO_PUSH_TOKEN,
+        sound: 'default',
+        channelId: 'default',
+        title: `Strava Challenge: ${challenge.title}`,
+        body: challenge.description,
+        data: { url: challenge.url, id: challenge.id, imageUrl: challenge.imageUrl },
+    };
 
-    const message = [
-        `*[${challenge.id}: ${esc(challenge.title)}](${challenge.url})*`,
-        ``,
-        `_${esc(challenge.description)}_`,
-        ``,
-        `*${esc(challenge.dateInterval)}*`,
-        ``,
-        `*Activities:* _${esc(challenge.qualifyingActivities)}_`,
-    ].join("\n");
-
-    const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-            chat_id: env.TELEGRAM_CHAT_ID,
-            text: message,
-            parse_mode: "MarkdownV2",
-            link_preview_options: challenge.imageUrl ? {
-                is_disabled: false,
-                url: challenge.imageUrl,
-                prefer_large_media: true,
-                show_above_text: true
-            } : { is_disabled: true },
-            reply_markup: {
-                inline_keyboard: [[
-                    { text: "Join Challenge", url: challenge.url }
-                ]]
-            }
-        }),
+    const response = await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'Accept-encoding': 'gzip, deflate',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(message),
     });
+
     if (!response.ok) {
         const errorBody = await response.text();
-        throw new Error(`Telegram returned HTTP ${response.status}: ${errorBody}`);
+        throw new Error(`Expo Push returned HTTP ${response.status}: ${errorBody}`);
     }
 }
 
-async function sendScanReport(env: Env, result: { found: number; missing: number; errors: number }, idsScanned: number): Promise<void> {
-    const esc = (s: string) => s.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, "\\$&");
-    const message = [
-        `📡 *Scan complete*`,
-        ``,
-        `🆕 Found: *${result.found}*`,
-        `🚫 Missing: *${result.missing}*`,
-        `⚠️ Errors: *${result.errors}*`,
-        `🔢 IDs checked: *${idsScanned}*`,
-        ``,
-        `_${esc(new Date().toISOString())}_`,
-    ].join("\n");
+async function notifyBatched(env: Env, challenges: Challenge[]): Promise<void> {
+    if (challenges.length === 0) return;
+    
+    let title = `${challenges.length} new challenges found!`;
+    if (challenges.length === 1) {
+        title = `Strava Challenge: ${challenges[0].title}`;
+    }
+    
+    let body = challenges.map(c => c.title).slice(0, 3).join(", ");
+    if (challenges.length > 3) {
+        body += `... and ${challenges.length - 3} more!`;
+    }
+    
+    const message = {
+        to: env.EXPO_PUSH_TOKEN,
+        sound: 'default',
+        channelId: 'default',
+        title: title,
+        body: body,
+        data: { type: 'new_challenges', ids: challenges.map(c => c.id) },
+    };
 
-    const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-            chat_id: env.TELEGRAM_CHAT_MY_ID,
-            text: message,
-            parse_mode: "MarkdownV2",
-        }),
+    const response = await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'Accept-encoding': 'gzip, deflate',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(message),
     });
+
     if (!response.ok) {
         const errorBody = await response.text();
-        throw new Error(`Telegram returned HTTP ${response.status}: ${errorBody}`);
+        throw new Error(`Expo Push returned HTTP ${response.status}: ${errorBody}`);
+    }
+}
+async function sendScanReport(env: Env, result: { found: number; missing: number; errors: number }, idsScanned: number): Promise<void> {
+    const message = {
+        to: env.EXPO_PUSH_TOKEN,
+        sound: 'default',
+        channelId: 'default',
+        title: 'Scan Complete',
+        body: `Found: ${result.found}, Missing: ${result.missing}, Errors: ${result.errors}, Checked: ${idsScanned}`,
+        data: { type: 'report' },
+    };
+
+    const response = await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'Accept-encoding': 'gzip, deflate',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(message),
+    });
+
+    if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`Expo Push returned HTTP ${response.status}: ${errorBody}`);
     }
 }
 
@@ -207,6 +226,7 @@ async function scan(env: Env): Promise<{ found: number; missing: number; errors:
     let foundAnyNew = false;
     let deferredMissingNewIds: number[] = [];
     let highestFoundNewId = -1;
+    const newChallenges: Challenge[] = [];
 
     const fetchResults = await Promise.all(
         ids.map(async (id) => {
@@ -259,22 +279,16 @@ async function scan(env: Env): Promise<{ found: number; missing: number; errors:
         const detectedAtFallback = new Date().toISOString();
         // Combine the challenge upsert + attempts upsert into a single batched subrequest.
         await env.DB.batch([
-            env.DB.prepare("INSERT OR REPLACE INTO challenges (id, title, description, date_interval, qualifying_activities, url, detected_at, notified_at) VALUES (?, ?, ?, ?, ?, ?, COALESCE((SELECT detected_at FROM challenges WHERE id = ?), ?), ?)").bind(id, challenge.title, challenge.description, challenge.dateInterval, challenge.qualifyingActivities, challenge.url, id, detectedAtFallback, existing ? (await state(env.DB, `notified:${id}`, "")) : null),
+            env.DB.prepare("INSERT OR REPLACE INTO challenges (id, title, description, date_interval, qualifying_activities, url, image_url, detected_at, notified_at) VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT detected_at FROM challenges WHERE id = ?), ?), ?)").bind(id, challenge.title, challenge.description, challenge.dateInterval, challenge.qualifyingActivities, challenge.url, challenge.imageUrl || null, id, detectedAtFallback, existing ? (await state(env.DB, `notified:${id}`, "")) : null),
             env.DB.prepare("INSERT INTO attempts (id, status, last_checked_at, next_retry_at, attempts) VALUES (?, 'found', ?, ?, 1) ON CONFLICT(id) DO UPDATE SET status = 'found', last_checked_at = excluded.last_checked_at, next_retry_at = excluded.next_retry_at").bind(id, new Date().toISOString(), new Date(Date.now() + retryDelayMs).toISOString()),
         ]);
         if (!existing) {
-            try {
-                await notify(env, challenge);
-                const notifiedAt = new Date().toISOString();
-                // Combine the "notified" state write + challenges.notified_at update into a single batched subrequest.
-                await env.DB.batch([
-                    env.DB.prepare("INSERT INTO scan_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(`notified:${id}`, notifiedAt),
-                    env.DB.prepare("UPDATE challenges SET notified_at = ? WHERE id = ?").bind(notifiedAt, id),
-                ]);
-            } catch (error) {
-                errors++;
-                await setState(env.DB, `notified:${id}`, "");
-            }
+            newChallenges.push(challenge);
+            const notifiedAt = new Date().toISOString();
+            await env.DB.batch([
+                env.DB.prepare("INSERT INTO scan_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(`notified:${id}`, notifiedAt),
+                env.DB.prepare("UPDATE challenges SET notified_at = ? WHERE id = ?").bind(notifiedAt, id),
+            ]);
         }
     }
 
@@ -292,6 +306,12 @@ async function scan(env: Env): Promise<{ found: number; missing: number; errors:
         env.DB.prepare("INSERT INTO scan_state (key, value) VALUES ('last_scan_at', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(now),
         env.DB.prepare("INSERT INTO scan_state (key, value) VALUES ('last_scan_result', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(`${found} found, ${missing} missing, ${errors} errors`),
     ]);
+
+    try {
+        await notifyBatched(env, newChallenges);
+    } catch (error) {
+        console.error("Failed to send batched notification:", error);
+    }
 
     try {
         await sendScanReport(env, { found, missing, errors }, ids.length);
@@ -1393,14 +1413,22 @@ export default {
     async fetch(request: Request, env: Env): Promise<Response> {
         const url = new URL(request.url);
         if (url.pathname === "/") return new Response(dashboard, { headers: { "content-type": "text/html;charset=UTF-8" } });
-        if (url.pathname === "/api/health") return Response.json({ ok: true });
+        if (url.pathname === "/api/health") {
+            try {
+                // Lazy migration to add image_url column since CLI remote D1 auth failed
+                await env.DB.prepare("ALTER TABLE challenges ADD COLUMN image_url TEXT;").run();
+            } catch(e) {
+                // Ignore if it already exists
+            }
+            return Response.json({ ok: true });
+        }
         if (url.pathname === "/api/status") {
             const [lastScanAt, nextId, consecutiveMissing, lastScanResult, challenges] = await Promise.all([
                 state(env.DB, "last_scan_at", ""),
                 state(env.DB, "next_id", env.START_ID),
                 state(env.DB, "consecutive_missing", "0"),
                 state(env.DB, "last_scan_result", "Never scanned"),
-                env.DB.prepare("SELECT id, title, description, date_interval AS dateInterval, qualifying_activities AS qualifyingActivities, url, detected_at AS detectedAt FROM challenges ORDER BY detectedAt DESC LIMIT 50").all()
+                env.DB.prepare("SELECT id, title, description, date_interval AS dateInterval, qualifying_activities AS qualifyingActivities, url, image_url AS imageUrl, detected_at AS detectedAt FROM challenges ORDER BY detectedAt DESC LIMIT 50").all()
             ]);
             const nextScanAt = getNextScheduledScan();
             return Response.json({
@@ -1413,6 +1441,19 @@ export default {
                 challenges: challenges.results ?? []
             });
         }
+        const challengesMatch = url.pathname.match(/^\/api\/challenges$/);
+        if (challengesMatch && request.method === "GET") {
+            const page = parseInt(url.searchParams.get("page") || "0", 10);
+            const limit = 20;
+            const offset = page * limit;
+            try {
+                const challenges = await env.DB.prepare("SELECT id, title, description, date_interval AS dateInterval, qualifying_activities AS qualifyingActivities, url, image_url AS imageUrl, detected_at AS detectedAt FROM challenges ORDER BY detectedAt DESC LIMIT ? OFFSET ?").bind(limit, offset).all();
+                return Response.json({ challenges: challenges.results ?? [] });
+            } catch (error) {
+                return Response.json({ error: "Database error", detail: String(error) }, { status: 500 });
+            }
+        }
+
         const singleChallengeMatch = url.pathname.match(/^\/api\/challenges\/(\d+)$/);
         if (singleChallengeMatch && request.method === "GET") {
             //if (request.headers.get("authorization") !== `Bearer ${env.SCAN_ADMIN_TOKEN}`) return Response.json({ error: "Unauthorized" }, { status: 401 });
