@@ -153,6 +153,7 @@ async function notify(env: Env, challenge: Challenge): Promise<void> {
 }
 
 async function sendScanReport(env: Env, result: { found: number; missing: number; errors: number }, idsScanned: number): Promise<void> {
+    const esc = (s: string) => s.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, "\\$&");
     const message = [
         `📡 *Scan complete*`,
         ``,
@@ -161,7 +162,7 @@ async function sendScanReport(env: Env, result: { found: number; missing: number
         `⚠️ Errors: *${result.errors}*`,
         `🔢 IDs checked: *${idsScanned}*`,
         ``,
-        `<i>${new Date().toISOString()}</i>`,
+        `_${esc(new Date().toISOString())}_`,
     ].join("\n");
 
     const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
