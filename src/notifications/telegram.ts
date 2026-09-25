@@ -2,15 +2,16 @@ import { NotificationBroadcaster, ScanReport } from "./broadcaster";
 import { Challenge, Env } from "../types";
 
 export class TelegramBroadcaster implements NotificationBroadcaster {
-    private async sendTelegramMessage(env: Env, text: string, replyMarkup?: any): Promise<void> {
-        if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) {
+    private async sendTelegramMessage(env: Env, text: string, replyMarkup?: any, customChatId?: string): Promise<void> {
+        const chatId = customChatId || env.TELEGRAM_CHAT_ID;
+        if (!env.TELEGRAM_BOT_TOKEN || !chatId) {
             console.error("Telegram bot token or chat ID is not set");
             return;
         }
 
         const url = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`;
         const body: any = {
-            chat_id: env.TELEGRAM_CHAT_ID,
+            chat_id: chatId,
             text: text,
             parse_mode: "MarkdownV2",
             link_preview_options: {
@@ -77,7 +78,8 @@ export class TelegramBroadcaster implements NotificationBroadcaster {
     }
 
     async sendScanReport(env: Env, result: ScanReport, idsScanned: number): Promise<void> {
+        if (!env.TELEGRAM_ADMIN_CHAT_ID) return; // Only send if admin chat is configured
         const text = `*Scan Complete*\n\nFound: ${result.found}\nMissing: ${result.missing}\nErrors: ${result.errors}\nChecked: ${idsScanned}`;
-        await this.sendTelegramMessage(env, text);
+        await this.sendTelegramMessage(env, text, undefined, env.TELEGRAM_ADMIN_CHAT_ID);
     }
 }

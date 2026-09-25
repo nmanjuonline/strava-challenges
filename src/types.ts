@@ -6,6 +6,7 @@ export interface Env {
     FETCH_BATCH_SIZE?: string;
     TELEGRAM_BOT_TOKEN?: string;
     TELEGRAM_CHAT_ID?: string;
+    TELEGRAM_ADMIN_CHAT_ID?: string;
 }
 
 export type Challenge = {
