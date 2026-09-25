@@ -8,7 +8,7 @@ crons = ["0 1,7,13,19 * * *"]
 [[d1_databases]]
 binding = "DB"
 database_name = "strava-scout"
-database_id = "ee4de2fe-9cc8-42c1-965f-696713ad999f"
+database_id = "749b09a8-5efc-40e3-bad8-4d25c78e02bf"
 
 [vars]
 START_ID = "6430"

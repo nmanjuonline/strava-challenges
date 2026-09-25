@@ -31,7 +31,7 @@ A serverless Cloudflare Worker application that automatically discovers Strava c
 
 ## 🎯 Overview
 
-**Strava Challenge Watch** is a lightweight, serverless application that monitors Strava's challenge platform and automatically notifies users via Telegram when new challenges become available. Built on Cloudflare Workers with D1 database backend, it provides real-time challenge discovery without requiring manual checking.
+**Strava Scout** is a lightweight, serverless application that monitors Strava's challenge platform and automatically notifies users via Telegram when new challenges become available. Built on Cloudflare Workers with D1 database backend, it provides real-time challenge discovery without requiring manual checking.
 
 The application runs on a scheduled cron job (twice daily by default), scans sequential challenge IDs, intelligently retries failed attempts, and maintains a persistent log of all discovered challenges.
 
@@ -201,8 +201,8 @@ This creates three tables:
 
 1. Open Telegram and message [@BotFather](https://t.me/BotFather)
 2. Send `/newbot` and follow prompts:
-   - Choose a name for your bot (e.g., "Strava Challenge Alerts")
-   - Choose a username (must be unique, e.g., "strava_alerts_bot")
+   - Choose a name for your bot (e.g., "Strava Scout Alerts")
+   - Choose a username (must be unique, e.g., "strava_scout_bot")
 3. Copy the **Bot Token** (example: `123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`)
 4. Start a chat with your bot and obtain your **Chat ID**:
    - Message your bot anything

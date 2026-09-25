@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS attempts (
 );
 
 INSERT OR IGNORE INTO scan_state (key, value) VALUES
-  ('next_id', '6434'),
+  ('next_id', '6430'),
   ('consecutive_missing', '0'),
   ('last_scan_at', ''),
   ('last_scan_result', 'Never scanned');

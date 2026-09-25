@@ -330,7 +330,7 @@ const dashboard = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Strava Challenge Watchtower</title>
+<title>Strava Scout Watchtower</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1097,7 +1097,7 @@ const dashboard = `<!doctype html>
       <div class="empty-state">
         <div class="empty-icon">⏳</div>
         <div class="empty-title">Loading challenges…</div>
-        <div class="empty-desc">Connecting to Strava Challenge Watchtower</div>
+        <div class="empty-desc">Connecting to Strava Scout Watchtower</div>
       </div>
     </div>
   </section>
