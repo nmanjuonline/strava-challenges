@@ -1,4 +1,4 @@
-﻿export const dashboard = `<!doctype html>
+export const dashboard = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -435,6 +435,19 @@
     transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     position: relative;
   }
+  .challenge-left-col {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+  }
+  .challenge-image {
+    width: 64px;
+    height: 64px;
+    border-radius: 8px;
+    object-fit: cover;
+    background: rgba(255, 255, 255, 0.05);
+  }
   .challenge-card:hover {
     border-color: var(--card-hover-border);
     box-shadow: var(--card-hover-glow);
@@ -454,6 +467,7 @@
     color: var(--accent);
     text-align: center;
     height: fit-content;
+    width: 100%;
   }
   .challenge-content {
     display: flex;
@@ -913,8 +927,12 @@ function renderChallenges() {
   list.innerHTML = filtered.map(c => {
     const activities = (c.qualifyingActivities || 'Activity').split(',').map(a => a.trim()).filter(Boolean);
     const actPills = activities.map(a => '<span class="activity-pill">' + escapeHtml(a) + '</span>').join('');
+    const imgHtml = c.imageUrl ? '<img src="' + escapeHtml(c.imageUrl) + '" class="challenge-image" />' : '';
     return '<article class="challenge-card">' +
-      '<div class="challenge-id-badge mono">#' + c.id + '</div>' +
+      '<div class="challenge-left-col">' +
+        '<div class="challenge-id-badge mono">#' + c.id + '</div>' +
+        imgHtml +
+      '</div>' +
       '<div class="challenge-content">' +
         '<div class="challenge-top">' +
           '<div class="activity-pills">' + actPills + '</div>' +
