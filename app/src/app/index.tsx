@@ -1,11 +1,17 @@
 import { useState, useEffect } from 'react';
 import { StyleSheet, SectionList, RefreshControl, Linking, TouchableOpacity, ActivityIndicator, View, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Notifications from 'expo-notifications';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
+
+const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+const Notifications = isExpoGo ? null : require('expo-notifications');
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+
+import { useRouter } from 'expo-router';
+import { usePreferences } from '@/hooks/usePreferences';
 
 type Challenge = {
   id: number;
@@ -18,6 +24,55 @@ type Challenge = {
   detectedAt: string;
 };
 
+function parseDateSafe(str: string): Date {
+  const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+  let m = -1, d = 1, y = new Date().getFullYear();
+  
+  const monthMatch = str.match(/[a-zA-Z]+/);
+  if (monthMatch) {
+    m = months.findIndex(x => monthMatch[0].toLowerCase().startsWith(x));
+  }
+  
+  const numbers = str.match(/\d+/g);
+  if (numbers) {
+    if (numbers.length >= 2) {
+      d = parseInt(numbers[0]);
+      y = parseInt(numbers[1]);
+    } else if (numbers.length === 1) {
+      const num = parseInt(numbers[0]);
+      if (num > 1000) y = num;
+      else d = num;
+    }
+  }
+  
+  if (m === -1) return new Date(str);
+  return new Date(y, m, d);
+}
+
+function isChallengeActive(dateInterval: string): boolean {
+  if (!dateInterval) return false;
+
+  const now = new Date();
+  
+  let parts = dateInterval.split(/\s+-\s+|\s+to\s+/i);
+  if (parts.length === 2) {
+    const endDate = parseDateSafe(parts[1]);
+    if (!isNaN(endDate.getTime())) {
+      endDate.setHours(23, 59, 59, 999);
+      return now.getTime() <= endDate.getTime();
+    }
+  }
+  
+  const date = parseDateSafe(dateInterval);
+  if (!isNaN(date.getTime())) {
+     if (date.getFullYear() > now.getFullYear()) return true;
+     if (date.getFullYear() === now.getFullYear() && date.getMonth() >= now.getMonth()) return true;
+     return false;
+  }
+
+  return false;
+}
+
 export default function HomeScreen() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -26,7 +81,9 @@ export default function HomeScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [highlightedIds, setHighlightedIds] = useState<Set<number>>(new Set());
   
-  const lastNotificationResponse = Notifications.useLastNotificationResponse();
+  const lastNotificationResponse = isExpoGo ? null : Notifications.useLastNotificationResponse();
+  const router = useRouter();
+  const { activeOnly } = usePreferences();
 
   useEffect(() => {
     if (
@@ -80,8 +137,10 @@ export default function HomeScreen() {
   };
 
   // Group challenges by the local date string of detectedAt
+  const visibleChallenges = activeOnly ? challenges.filter(c => isChallengeActive(c.dateInterval)) : challenges;
+  
   const sectionsMap = new Map<string, Challenge[]>();
-  challenges.forEach(challenge => {
+  visibleChallenges.forEach(challenge => {
     const dateObj = new Date(challenge.detectedAt);
     const dateStr = dateObj.toLocaleDateString(undefined, {
       weekday: 'short',
@@ -122,7 +181,7 @@ export default function HomeScreen() {
       <View style={styles.cardFooterRow}>
         <View style={styles.footerDateContainer}>
           <ThemedText type="small" style={styles.cardDate}>{item.dateInterval}</ThemedText>
-          <ThemedText type="small" style={styles.cardTime}>• Found {new Date(item.detectedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</ThemedText>
+          <ThemedText type="small" style={styles.cardTime}>• {new Date(item.detectedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</ThemedText>
         </View>
         <ThemedText type="small" style={styles.cardActivities} numberOfLines={1}>{item.qualifyingActivities}</ThemedText>
       </View>
@@ -135,6 +194,10 @@ export default function HomeScreen() {
         <View style={styles.headerContainer}>
           <Image source={require('../../assets/images/logo.jpg')} style={styles.headerLogo} resizeMode="contain" />
           <ThemedText type="title" style={styles.header}>Strava Scout</ThemedText>
+          <View style={{ flex: 1 }} />
+          <TouchableOpacity onPress={() => router.push('/settings')} style={styles.settingsButton}>
+            <ThemedText style={{ fontSize: 24, lineHeight: 28, paddingHorizontal: 4 }}>⚙️</ThemedText>
+          </TouchableOpacity>
         </View>
         <SectionList
           sections={sections}
@@ -207,6 +270,9 @@ const styles = StyleSheet.create({
   header: {
     color: '#fc5200',
     fontSize: 22,
+  },
+  settingsButton: {
+    padding: Spacing.one,
   },
   listContainer: {
     paddingHorizontal: Spacing.four,
