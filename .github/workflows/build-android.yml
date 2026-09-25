@@ -42,9 +42,12 @@ jobs:
         working-directory: ./app/android
         run: ./gradlew assembleRelease
 
+      - name: Rename APK
+        run: mv app/android/app/build/outputs/apk/release/app-release.apk "app/android/app/build/outputs/apk/release/stravascout.apk"
+
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Android-APK
-          path: app/android/app/build/outputs/apk/release/app-release.apk
+          name: Strava Scout
+          path: "app/android/app/build/outputs/apk/release/strava-scout.apk"
           retention-days: 7
