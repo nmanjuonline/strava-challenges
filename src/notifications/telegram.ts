@@ -38,11 +38,17 @@ export class TelegramBroadcaster implements NotificationBroadcaster {
     }
 
     async notify(env: Env, challenge: Challenge): Promise<void> {
-        const esc = (s: string) => s.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, "\\$&");
+        const esc = (s: any) => s ? String(s).replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, "\\$&") : "";
+        
+        let desc = challenge.description || "No description provided";
+        if (desc.length > 2000) {
+            desc = desc.substring(0, 1997) + "...";
+        }
+
         const text = [
             `*[${challenge.id}: ${esc(challenge.title)}](${challenge.url})*`,
             ``,
-            `_${esc(challenge.description)}_`,
+            `_${esc(desc)}_`,
             ``,
             `*${esc(challenge.dateInterval)}*`,
             ``,
