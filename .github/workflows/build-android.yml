@@ -43,7 +43,7 @@ jobs:
         run: ./gradlew assembleRelease
 
       - name: Rename APK
-        run: mv app/android/app/build/outputs/apk/release/app-release.apk "app/android/app/build/outputs/apk/release/stravascout.apk"
+        run: mv app/android/app/build/outputs/apk/release/app-release.apk "app/android/app/build/outputs/apk/release/strava-scout.apk"
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
