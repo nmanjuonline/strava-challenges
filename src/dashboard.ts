@@ -665,8 +665,8 @@
         </div>
       </div>
       <div>
-        <div class="stat-value mono" id="next-scan-time">Calculatingâ€¦</div>
-        <div class="countdown-badge" id="next-scan-countdown">â± --</div>
+        <div class="stat-value mono" id="next-scan-time">Calculating…</div>
+        <div class="countdown-badge" id="next-scan-countdown">⏱ --</div>
       </div>
       <div class="stat-meta" style="margin-top: 10px;">
         <div id="next-scan-local-meta">Local Time</div>
@@ -686,8 +686,8 @@
         </div>
       </div>
       <div>
-        <div class="stat-value mono" id="last-scan-time">â€”</div>
-        <div class="stat-tag success" id="last-scan-result">â€”</div>
+        <div class="stat-value mono" id="last-scan-time">—</div>
+        <div class="stat-tag success" id="last-scan-result">—</div>
       </div>
       <div class="stat-meta" style="margin-top: 10px;">
         <div id="last-scan-relative">Awaiting first scan</div>
@@ -730,7 +730,7 @@
         </div>
       </div>
       <div>
-        <div class="stat-value mono" id="next-id">â€”</div>
+        <div class="stat-value mono" id="next-id">—</div>
         <div class="stat-tag" id="consecutive-missing-tag">0 missing in a row</div>
       </div>
       <div class="stat-meta" style="margin-top: 10px;">
@@ -754,22 +754,22 @@
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
-          <input type="text" class="search-input" id="search-input" placeholder="Search by challenge name, activity (Run, Ride...), or IDâ€¦">
+          <input type="text" class="search-input" id="search-input" placeholder="Search by challenge name, activity (Run, Ride...), or ID…">
         </div>
         <div class="filter-chips" id="filter-chips">
           <button class="filter-chip active" data-filter="all">All</button>
-          <button class="filter-chip" data-filter="run">ðŸƒ Run</button>
-          <button class="filter-chip" data-filter="ride">ðŸš´ Ride</button>
-          <button class="filter-chip" data-filter="walk">ðŸš¶ Walk / Hike</button>
-          <button class="filter-chip" data-filter="swim">ðŸŠ Swim</button>
+          <button class="filter-chip" data-filter="run">🏃 Run</button>
+          <button class="filter-chip" data-filter="ride">🚴 Ride</button>
+          <button class="filter-chip" data-filter="walk">🚶 Walk / Hike</button>
+          <button class="filter-chip" data-filter="swim">🏊 Swim</button>
         </div>
       </div>
     </div>
 
     <div class="challenge-list" id="list">
       <div class="empty-state">
-        <div class="empty-icon">â³</div>
-        <div class="empty-title">Loading challengesâ€¦</div>
+        <div class="empty-icon">⏳</div>
+        <div class="empty-title">Loading challenges…</div>
         <div class="empty-desc">Connecting to Strava Scout Watchtower</div>
       </div>
     </div>
@@ -789,7 +789,7 @@ function showToast(message, isError) {
   const toast = document.createElement('div');
   toast.className = 'toast';
   toast.style.borderColor = isError ? '#ef4444' : 'rgba(255, 255, 255, 0.12)';
-  toast.innerHTML = (isError ? 'âš ï¸ ' : 'âœ… ') + message;
+  toast.innerHTML = (isError ? '⚠️ ' : '✅ ') + message;
   container.appendChild(toast);
   setTimeout(() => { toast.remove(); }, 3500);
 }
@@ -850,9 +850,9 @@ function formatLocalDateTime(isoString) {
     const diffHours = Math.floor(diffMins / 60);
     const remMins = diffMins % 60;
     if (diffHours > 0) {
-      countdown = 'â± in ' + diffHours + 'h ' + remMins + 'm';
+      countdown = '⏱ in ' + diffHours + 'h ' + remMins + 'm';
     } else {
-      countdown = 'â± in ' + diffMins + 'm';
+      countdown = '⏱ in ' + diffMins + 'm';
     }
     relative = countdown;
   } else {
@@ -876,8 +876,8 @@ function updateNextScanDisplay() {
   const targetIso = nextScanIsoTimestamp || computeClientNextScanIso();
   const fmt = formatLocalDateTime(targetIso);
   document.getElementById('next-scan-time').textContent = fmt.main;
-  document.getElementById('next-scan-countdown').textContent = fmt.countdown || 'â± Scanning soon';
-  document.getElementById('next-scan-local-meta').textContent = 'Local Time Â· ' + fmt.sub;
+  document.getElementById('next-scan-countdown').textContent = fmt.countdown || '⏱ Scanning soon';
+  document.getElementById('next-scan-local-meta').textContent = 'Local Time · ' + fmt.sub;
 }
 
 function renderChallenges() {
@@ -903,9 +903,9 @@ function renderChallenges() {
 
   if (!filtered.length) {
     if (allChallenges.length === 0) {
-      list.innerHTML = '<div class="empty-state"><div class="empty-icon">ðŸŽ¯</div><div class="empty-title">No challenges discovered yet</div><div class="empty-desc">The scanner runs every 6 hours. You can also trigger an on-demand scan above!</div></div>';
+      list.innerHTML = '<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-title">No challenges discovered yet</div><div class="empty-desc">The scanner runs every 6 hours. You can also trigger an on-demand scan above!</div></div>';
     } else {
-      list.innerHTML = '<div class="empty-state"><div class="empty-icon">ðŸ”</div><div class="empty-title">No matching challenges</div><div class="empty-desc">Try modifying your search keywords or filter pills.</div></div>';
+      list.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">No matching challenges</div><div class="empty-desc">Try modifying your search keywords or filter pills.</div></div>';
     }
     return;
   }
@@ -965,14 +965,14 @@ async function load() {
     if (d.lastScanAt) {
       const lastFmt = formatLocalDateTime(d.lastScanAt);
       document.getElementById('last-scan-time').textContent = lastFmt.main;
-      document.getElementById('last-scan-relative').textContent = lastFmt.relative + ' Â· ' + lastFmt.sub;
+      document.getElementById('last-scan-relative').textContent = lastFmt.relative + ' · ' + lastFmt.sub;
     } else {
       document.getElementById('last-scan-time').textContent = 'Never';
       document.getElementById('last-scan-relative').textContent = 'Awaiting initial scan run';
     }
 
     document.getElementById('last-scan-result').textContent = d.lastScanResult || 'No history';
-    document.getElementById('next-id').textContent = '#' + (d.nextId || 'â€”');
+    document.getElementById('next-id').textContent = '#' + (d.nextId || '—');
     document.getElementById('consecutive-missing-tag').textContent = (d.consecutiveMissing || 0) + ' missing in a row';
     document.getElementById('total-detected-count').textContent = allChallenges.length;
 
@@ -990,7 +990,7 @@ async function triggerScan() {
   const scanIcon = document.getElementById('scan-icon');
 
   btn.disabled = true;
-  btnText.textContent = 'Scanningâ€¦';
+  btnText.textContent = 'Scanning…';
   scanIcon.classList.add('spin');
 
   try {
