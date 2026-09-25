@@ -1,15 +1,15 @@
 import { DarkTheme, DefaultTheme, ThemeProvider, Slot } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
 import { useEffect } from 'react';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { PreferencesProviderWrapper, usePreferences } from '@/hooks/usePreferences';
 
 SplashScreen.preventAutoHideAsync();
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+function RootLayoutInner() {
+  const { activeTheme } = usePreferences();
   const { expoPushToken, notification } = usePushNotifications();
   
   useEffect(() => {
@@ -19,9 +19,17 @@ export default function TabLayout() {
   }, [expoPushToken]);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={activeTheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
       <Slot />
     </ThemeProvider>
+  );
+}
+
+export default function TabLayout() {
+  return (
+    <PreferencesProviderWrapper>
+      <RootLayoutInner />
+    </PreferencesProviderWrapper>
   );
 }
