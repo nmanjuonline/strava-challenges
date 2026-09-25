@@ -1,4 +1,4 @@
-name = "strava-challenges"
+name = "strava-scout"
 main = "src/index.ts"
 compatibility_date = "2026-09-16"
 
@@ -7,7 +7,7 @@ crons = ["0 1,7,13,19 * * *"]
 
 [[d1_databases]]
 binding = "DB"
-database_name = "strava-challenges"
+database_name = "strava-scout"
 database_id = "ee4de2fe-9cc8-42c1-965f-696713ad999f"
 
 [vars]

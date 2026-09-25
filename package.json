@@ -1,15 +1,15 @@
 {
-  "name": "strava-challenges",
+  "name": "strava-scout",
   "version": "1.0.0",
   "private": true,
   "description": "<div align=\"center\">",
-  "homepage": "https://github.com/nmanjuonline/strava-challenges#readme",
+  "homepage": "https://github.com/nmanjuonline/strava-scout#readme",
   "bugs": {
-    "url": "https://github.com/nmanjuonline/strava-challenges/issues"
+    "url": "https://github.com/nmanjuonline/strava-scout/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nmanjuonline/strava-challenges.git"
+    "url": "git+https://github.com/nmanjuonline/strava-scout.git"
   },
   "license": "ISC",
   "author": "",

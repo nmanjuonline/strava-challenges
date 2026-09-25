@@ -131,8 +131,8 @@ Before deployment, ensure you have:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/strava-challenges.git
-cd strava-challenges
+git clone https://github.com/yourusername/strava-scout.git
+cd strava-scout
 
 # Or initialize from scratch
 npm init
@@ -153,13 +153,13 @@ This installs:
 ### Step 3: Create Cloudflare D1 Database
 
 ```bash
-# Create a new D1 database named 'strava-challenges'
-npx wrangler d1 create strava-challenges
+# Create a new D1 database named 'strava-scout'
+npx wrangler d1 create strava-scout
 ```
 
 After running this command, you'll receive output like:
 ```
-✅ Successfully created DB 'strava-challenges'
+✅ Successfully created DB 'strava-scout'
    ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
@@ -171,11 +171,11 @@ Edit `wrangler.toml` and add:
 
 ```toml
 [env.production]
-name = "strava-challenges"
+name = "strava-scout"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "strava-challenges"
+database_name = "strava-scout"
 database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"  # Paste your ID here
 
 [triggers]
@@ -189,7 +189,7 @@ START_ID = "6434"  # First challenge ID to scan
 
 ```bash
 # Run migrations to create tables
-npx wrangler d1 migrations apply strava-challenges --remote
+npx wrangler d1 migrations apply strava-scout --remote
 ```
 
 This creates three tables:
@@ -246,7 +246,7 @@ npm run deploy
 
 After deployment, you'll see:
 ```
-✅ Deployed to https://strava-challenges-abc123.workers.dev/
+✅ Deployed to https://strava-scout-abc123.workers.dev/
 ```
 
 Save this URL—it's your dashboard link.
@@ -658,12 +658,12 @@ CREATE TABLE attempts (
    ```toml
    [[d1_databases]]
    binding = "DB"
-   database_name = "strava-challenges"
+   database_name = "strava-scout"
    database_id = "YOUR_ID"
    ```
 2. Check if migrations applied:
    ```bash
-   npx wrangler d1 execute strava-challenges --remote --command "SELECT name FROM sqlite_master WHERE type='table';"
+   npx wrangler d1 execute strava-scout --remote --command "SELECT name FROM sqlite_master WHERE type='table';"
    ```
 3. Check for database errors in logs:
    ```bash
@@ -710,7 +710,7 @@ CREATE TABLE attempts (
 1. Check D1 usage at [Cloudflare Dashboard](https://dash.cloudflare.com)
 2. Clean old data (older than 30 days):
    ```bash
-   npx wrangler d1 execute strava-challenges --remote \
+   npx wrangler d1 execute strava-scout --remote \
 	 --command "DELETE FROM challenges WHERE detected_at < datetime('now', '-30 days');"
    ```
 3. Upgrade to paid D1 tier if needed
@@ -722,7 +722,7 @@ CREATE TABLE attempts (
 ### Project Structure
 
 ```
-strava-challenges/
+strava-scout/
 ├── src/
 │   └── index.ts           # Main Worker code
 ├── migrations/
