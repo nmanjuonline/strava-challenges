@@ -638,7 +638,7 @@ export const dashboard = `<!doctype html>
         <circle cx="12" cy="12" r="10"></circle>
         <path d="M12 6v6l4 2"></path>
       </svg>
-      STRAVA CHALLENGE RADAR
+      STRAVA SCOUT RADAR
     </div>
     <h1>Challenges worth <span class="gradient-text">showing up for.</span></h1>
     <p class="hero-subtitle" id="subtitle-status">Continuous forward scanner discovering new Strava challenges and dispatching instant Telegram notifications.</p>
