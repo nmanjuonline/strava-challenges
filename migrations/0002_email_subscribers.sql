@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS email_subscribers (
+    email TEXT PRIMARY KEY,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);

@@ -1,6 +1,7 @@
 import { NotificationBroadcaster, ScanReport } from "./broadcaster";
 import { ExpoBroadcaster } from "./expo";
 import { TelegramBroadcaster } from "./telegram";
+import { EmailBroadcaster } from "./email";
 import { Challenge, Env } from "../types";
 
 export class NotificationDispatcher implements NotificationBroadcaster {
@@ -10,6 +11,7 @@ export class NotificationDispatcher implements NotificationBroadcaster {
         this.broadcasters = [
             new ExpoBroadcaster(),
             new TelegramBroadcaster(),
+            new EmailBroadcaster(),
         ];
     }
 
