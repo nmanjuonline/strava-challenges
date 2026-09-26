@@ -7,6 +7,7 @@ export interface Env {
     TELEGRAM_BOT_TOKEN?: string;
     TELEGRAM_CHAT_ID?: string;
     TELEGRAM_ADMIN_CHAT_ID?: string;
+    GOOGLE_SCRIPT_URL?: string;
 }
 
 export type Challenge = {
