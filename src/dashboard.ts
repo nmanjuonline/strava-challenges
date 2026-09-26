@@ -1,4 +1,4 @@
-﻿export const dashboard = `<!doctype html>
+export const dashboard = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -420,7 +420,7 @@
   .challenge-list {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 28px;
   }
   .challenge-card {
     background: var(--card-bg);
@@ -429,41 +429,36 @@
     border: 1px solid var(--card-border);
     border-radius: 14px;
     padding: 24px;
-    display: grid;
-    grid-template-columns: 86px 1fr;
-    gap: 22px;
+    display: flex;
+    flex-direction: column;
     transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     position: relative;
+  }
+  .card-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .card-top-left {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+  }
+  .challenge-image {
+    width: 64px;
+    height: 64px;
+    border-radius: 12px;
+    object-fit: cover;
+    background: rgba(255, 255, 255, 0.05);
+    flex-shrink: 0;
   }
   .challenge-card:hover {
     border-color: var(--card-hover-border);
     box-shadow: var(--card-hover-glow);
     transform: translateY(-2px);
   }
-  .challenge-id-badge {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    padding: 10px 8px;
-    background: rgba(252, 82, 0, 0.08);
-    border: 1px solid rgba(252, 82, 0, 0.25);
-    border-radius: 10px;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--accent);
-    text-align: center;
-    height: fit-content;
-  }
-  .challenge-content {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .challenge-top {
-    display: flex;
-    align-items: center;
-    gap: 10px;
     flex-wrap: wrap;
   }
   .activity-pills {
@@ -594,8 +589,6 @@
   }
   @media (max-width: 640px) {
     .stats-grid { grid-template-columns: 1fr; }
-    .challenge-card { grid-template-columns: 1fr; gap: 14px; }
-    .challenge-id-badge { width: fit-content; }
     .nav-container { flex-wrap: wrap; }
   }
 </style>
@@ -645,7 +638,7 @@
         <circle cx="12" cy="12" r="10"></circle>
         <path d="M12 6v6l4 2"></path>
       </svg>
-      STRAVA CHALLENGE RADAR
+      STRAVA SCOUT RADAR
     </div>
     <h1>Challenges worth <span class="gradient-text">showing up for.</span></h1>
     <p class="hero-subtitle" id="subtitle-status">Continuous forward scanner discovering new Strava challenges and dispatching instant Telegram notifications.</p>
@@ -912,19 +905,37 @@ function renderChallenges() {
 
   list.innerHTML = filtered.map(c => {
     const activities = (c.qualifyingActivities || 'Activity').split(',').map(a => a.trim()).filter(Boolean);
-    const actPills = activities.map(a => '<span class="activity-pill">' + escapeHtml(a) + '</span>').join('');
+    
+    let visibleActivities = activities;
+    let overflowCount = 0;
+    if (activities.length > 4) {
+      visibleActivities = activities.slice(0, 3);
+      overflowCount = activities.length - 3;
+    }
+
+    let actPills = visibleActivities.map(a => '<span class="activity-pill">' + escapeHtml(a) + '</span>').join('');
+    if (overflowCount > 0) {
+      actPills += '<span class="activity-pill" style="opacity: 0.8; background: transparent; border: 1px dashed rgba(56, 189, 248, 0.4); color: var(--fg-muted);">+' + overflowCount + ' more</span>';
+    }
+    const imgHtml = c.imageUrl ? '<img src="' + escapeHtml(c.imageUrl) + '" class="challenge-image" />' : '';
+    
     return '<article class="challenge-card">' +
-      '<div class="challenge-id-badge mono">#' + c.id + '</div>' +
-      '<div class="challenge-content">' +
-        '<div class="challenge-top">' +
-          '<div class="activity-pills">' + actPills + '</div>' +
-          '<div class="date-badge">' +
-            '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>' +
-            escapeHtml(c.dateInterval || 'Dates unlisted') +
+      '<div class="challenge-id-badge mono" style="position: absolute; top: -12px; left: 16px; font-size: 12px; font-weight: 700; color: var(--accent-light); background: var(--card-bg); border: 1px solid rgba(252, 82, 0, 0.4); padding: 4px 10px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">#' + c.id + '</div>' +
+      '<div class="card-top-row">' +
+        '<div class="card-top-left">' +
+          '<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">' +
+            '<div class="date-badge">' +
+              '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>' +
+              escapeHtml(c.dateInterval || 'Dates unlisted') +
+            '</div>' +
           '</div>' +
+          '<h2 class="challenge-title">' + escapeHtml(c.title) + '</h2>' +
         '</div>' +
-        '<h2 class="challenge-title">' + escapeHtml(c.title) + '</h2>' +
-        '<p class="challenge-desc">' + escapeHtml(c.description || 'No description provided') + '</p>' +
+        imgHtml +
+      '</div>' +
+      '<p class="challenge-desc" style="margin-top: 8px;">' + escapeHtml(c.description || 'No description provided') + '</p>' +
+      '<div class="activity-pills" style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px;">' + actPills + '</div>' +
+      '<div class="card-bottom-row" style="margin-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">' +
         '<div class="challenge-actions">' +
           '<a class="btn-strava" href="' + escapeHtml(c.url) + '" target="_blank" rel="noreferrer">' +
             '<span>Open on Strava</span>' +
